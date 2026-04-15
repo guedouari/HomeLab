@@ -29,10 +29,10 @@ This is a general guideline. Individual services will track their own compatibil
 - Pi-hole DNS overrides apply; local DNS resolution is split-horizon for internal services.
 
 ### WAN (Wide Area Network)
-- Connection from outside the home, commonly through WireGuard VPN or direct internet access.
+- Connection from outside the home, commonly through a VPN or direct internet access.
 - Expected latency: variable, typically 20-200 ms depending on ISP and distance.
-- Services are accessed through the public domain, routed through the reverse proxy (Caddy).
-- Pi-hole DNS is pushed through WireGuard clients, making local DNS resolution available remotely too.
+- Services are accessed through the public domain, routed through the reverse proxy.
+- DNS filtering rules can be extended to remote devices through the VPN, making local DNS resolution available remotely too.
 
 ### LAN-only devices
 - **Dual Windows/Linux Desktop** — high-performance workstation use; remote access not required.
@@ -52,8 +52,8 @@ This is a general guideline. Individual services will track their own compatibil
 - On LAN, DNS resolves to the internal server IP; connection stays local.
 - On WAN, DNS resolves to the public IP; traffic goes through the reverse proxy.
 
-### VPN mode (WireGuard tunneling)
-- Devices may optionally connect through WireGuard to join the home network remotely.
+### VPN mode
+- Devices may optionally connect through a VPN to join the home network remotely.
 - All services remain accessible at the same internal IP (LAN behavior).
 - This mode is supported but not the default; it should not be required for basic remote access.
 
@@ -71,7 +71,7 @@ This matrix is the baseline; each service decide its own compatibility:
 
 - Some services are LAN-only by design (e.g., Samba, Pi-hole).
 - Some services may require WAN routing through a reverse proxy (e.g., Nextcloud, Vaultwarden, Jellyfin).
-- Some services may work best on WireGuard (e.g., internal admin dashboards).
+- Some services may work best on VPN (e.g., internal admin dashboards).
 
 
 Each service's decision file or implementation notes should explicitly state which devices it supports and under what network conditions.

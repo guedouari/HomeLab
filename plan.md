@@ -6,14 +6,18 @@ This plan keeps scope tight: define the foundation, keep choices simple, and bui
 
 - Device baseline: [decisions/device-support-matrix.md](decisions/device-support-matrix.md)
 - Platform choice (final): [decisions/platform-choice.md](decisions/platform-choice.md)
-- Layer 0 details: [decisions/layer_0.md](decisions/layer_0.md)
+- Layer 0 details: [decisions/layer_0_lan.md](decisions/layer_0_lan.md)
 
-## Finalized Platform Decisions
+## Finalized Decisions
 
 - Container platform: Docker Engine + Docker Compose
+- Image source: linuxserver.io (preferred for all services where available)
 - Orchestration model: single-node
-- Layer 1 reverse proxy: SWAG (preferred to align with linuxserver images)
-- On-demand startup: Sablier for selected Layer 2+ services
+
+## Preferred / Proposed (not yet finalized)
+
+- Layer 1 reverse proxy: SWAG (linuxserver/swag) — preferred, decision pending
+- On-demand startup: Sablier — preferred, decision pending
 
 ## Core Principles
 
@@ -25,27 +29,26 @@ This plan keeps scope tight: define the foundation, keep choices simple, and bui
 
 ## Layer Model
 
-### Layer 0 - Core (current focus)
-Goal: make all required devices work on LAN, with VPN available for remote access when needed.
+### Layer 0 - LAN (current focus)
+Goal: make all required devices work on the local network reliably.
 
-Primary choices:
-- DNS: Pi-hole
-- File sharing: Samba on generic hosts, native NAS shares on NAS systems
-- VPN: WireGuard
-- Monitoring: Uptime Kuma
+Capabilities needed:
+- DNS filtering (candidate: Pi-hole)
+- File sharing (candidate: Samba on generic hosts, native NAS shares on NAS)
+- Monitoring (candidate: Uptime Kuma)
 
 Outcome:
-- Steam Deck, phones, and laptops can use the home stack reliably.
-- Desktop and smart TV are fully supported on LAN.
+- Steam Deck, phones, and laptops can use the home stack on LAN.
+- Desktop and smart TV are fully supported.
 
 ### Layer 1 - WAN Access
 Goal: secure remote access path.
 
-Primary choices:
+Capabilities needed:
+- VPN (candidate: WireGuard)
 - Private domain
-- SWAG as reverse proxy (preferred; linuxserver ecosystem)
-- Sablier for on-demand startup
-- TLS via DNS challenge (SWAG + Certbot)
+- Reverse proxy with TLS (candidate: SWAG + Certbot DNS challenge)
+- On-demand startup (candidate: Sablier)
 
 Depends on: Layer 0
 
@@ -81,10 +84,11 @@ Rules:
 
 ## Open Decisions (Layer 0 first)
 
-1. WireGuard image default: wg-easy or linuxserver/wireguard
-2. Monitoring exposure: LAN-only, VPN-only, or HTTPS behind auth
-3. DNS mode on target host: bridge, macvlan, or host networking
-4. File-sharing profile defaults by hardware target
+1. ✅ DNS filtering service: AdGuard Home
+2. ✅ File sharing service: Samba (linuxserver/samba) — all hardware targets
+3. ✅ Monitoring service: Uptime Kuma (linuxserver/uptime-kuma) + ntfy for phone alerts
+4. ✅ Database server: PostgreSQL (linuxserver/postgresql) — single shared instance
+5. DNS networking mode on target host: bridge, macvlan, or host networking — decided at implementation
 
 ## Current Scope Guardrails
 
