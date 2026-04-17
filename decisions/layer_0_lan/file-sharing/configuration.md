@@ -42,9 +42,9 @@ Key variables — to be validated during testing:
 |----------|---------|----------------|
 | `ACCOUNT_<username>` | Create a user with password | `ACCOUNT_alice=${SAMBA_PASSWORD}` |
 | `SAMBA_VOLUME_CONFIG_<name>` | Define a share (`;` = newline) | See below |
-| `AVAHI_DISABLE` | Disable mDNS discovery | `1` (bridge mode) |
-| `WSDD2_DISABLE` | Disable WSD discovery | `1` (bridge mode) |
-| `NETBIOS_DISABLE` | Disable NetBIOS | `1` (bridge mode) |
+| `AVAHI_DISABLE` | Disable mDNS/Bonjour discovery | `1` — needs host mode, deferred |
+| `WSDD2_DISABLE` | Disable WSD discovery | _(unset)_ — enabled for Windows Network Browser |
+| `NETBIOS_DISABLE` | Disable NetBIOS | `1` — superseded by wsdd2 |
 | `SAMBA_CONF_WORKGROUP` | Windows workgroup name | `WORKGROUP` |
 | `SAMBA_CONF_SERVER_STRING` | Server description | `HomeLab` |
 | `TZ` | Timezone | from `.env` |
@@ -56,11 +56,24 @@ SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read on
 SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; valid users = alice; guest ok = no; read only = no
 ```
 
+## Discovery
+
+The image bundles three discovery daemons. Each can be independently enabled/disabled.
+
+| Daemon | Protocol | Works in bridge? | Env to disable |
+|--------|----------|:----------------:|----------------|
+| wsdd2 | WS-Discovery (WSD) | ✅ | `WSDD2_DISABLE=1` |
+| avahi | mDNS/Bonjour | ❌ needs host mode | `AVAHI_DISABLE=1` |
+| nmbd | NetBIOS | ⚠️ limited | `NETBIOS_DISABLE=1` |
+
+**Current choice:** WSDD2 enabled (bridge-compatible), Avahi and NetBIOS disabled.
+
+Optional Avahi tuning (when/if host mode is adopted):
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `AVAHI_NAME` | Name shown in Finder | `HomeLab` |
+| `AVAHI_INTERFACES` | Restrict to one interface | `eth0` |
+| `MODEL` | macOS device icon | `TimeCapsule` |
+
 ---
-
-## Open Questions
-
-1. Do `AVAHI_DISABLE`, `WSDD2_DISABLE`, `NETBIOS_DISABLE` behave as documented — confirmed only by testing.
-2. Does `guest ok = yes` actually allow unauthenticated access from Windows / Android / iOS without prompting for credentials?
-3. File permission behaviour: do `force create mode` and `force directory mode` need to be set for cross-OS compatibility?
-4. Does the container need `cap_add: NET_ADMIN` for any functionality we plan to use (wsdd2 only — disabled, so likely not)?

@@ -3,8 +3,11 @@ services:
   # -------------------------------------------------------------------
   # Samba — LAN file sharing (SMB/CIFS)
   # bridge + port mapping; access shares by \\<host-ip>\<sharename>
-  # discovery (avahi / wsdd2 / netbios) disabled — does not work through
-  # bridge NAT; direct IP access always works without it
+  #
+  # Discovery:
+  #   wsdd2  — enabled; Windows Network Browser discovery (WS-Discovery)
+  #   avahi  — disabled; needs network_mode: host for mDNS multicast
+  #   netbios — disabled; legacy, superseded by wsdd2 on Windows 10+
   #
   # Users: one ACCOUNT_<username>=<password> env var per user
   #   default user: alice — password comes from SAMBA_PASSWORD in .env
@@ -15,6 +18,12 @@ services:
   #   media  — guest-accessible, read-write (smart TVs, Steam Deck, etc.)
   #   files  — authenticated users only, read-write
   #   backup — authenticated users only, read-write
+  #
+  # First-run permission fix (run once after first start):
+  #   docker exec samba sh -c "
+  #     chmod 777 /shares/media &&
+  #     chown -R alice:alice /shares/files /shares/backup &&
+  #     chmod 770 /shares/files /shares/backup"
   # -------------------------------------------------------------------
   samba:
     image: ghcr.io/servercontainers/samba:latest
@@ -22,9 +31,8 @@ services:
     hostname: homelab
     environment:
       - TZ=${TZ}
-      # Discovery services do not work through bridge NAT — keep disabled
+      # Discovery: wsdd2 enabled (Windows Network Browser), avahi/netbios disabled
       - AVAHI_DISABLE=1
-      - WSDD2_DISABLE=1
       - NETBIOS_DISABLE=1
       - SAMBA_CONF_WORKGROUP=WORKGROUP
       - SAMBA_CONF_SERVER_STRING=HomeLab
@@ -41,4 +49,6 @@ services:
     ports:
       - "139:139"
       - "445:445"
+      - "3702:3702/udp"  # wsdd2 WS-Discovery multicast
+      - "5357:5357"      # wsdd2 WS-Discovery HTTP
     restart: unless-stopped

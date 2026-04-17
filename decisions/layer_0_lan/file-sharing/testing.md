@@ -98,36 +98,42 @@ docker exec samba sh -c "
 
 ---
 
-## Step 4 — Share Access from Windows
+## Step 4 — Share Access from Windows (user validation)
 
-**⚠️ WSL2 limitation:** Windows `LanmanServer` (SMB Server service) listens on port 445 on **all** interfaces including the WSL2 virtual adapter. Connections to `\\<WSL-IP>\share` from the same Windows host are intercepted by `LanmanServer` before reaching the container — `net view` and File Explorer both fail with errors 53/67. This is not a Samba misconfiguration; it does not occur on target hardware (NAS, Pi).
+> **Deferred to user.** Automated testing is blocked on WSL2 — `LanmanServer` intercepts port 445 on all interfaces including the WSL2 virtual adapter. Test this from a separate machine or on target hardware.
 
-**Workaround for WSL2 dev:** test Windows access from a separate machine on the LAN that can reach the WSL IP.
-
-WSL IP at time of test: `192.168.143.14` (dynamic — run `ip -4 addr show eth0` to get current).
+Get the host IP (on real hardware: `ip -4 addr show eth0`).
 
 ```
-# In File Explorer address bar:
-\\192.168.143.14\media
-\\192.168.143.14\files
+# In Windows File Explorer address bar or Run dialog:
+\\<host-ip>\media       ← should open without login prompt
+\\<host-ip>\files       ← should prompt for credentials (alice / SAMBA_PASSWORD)
+
+# Or check Windows Network in Explorer sidebar (wsdd2 discovery)
 ```
 
 | Check | Result | Notes |
 |-------|:------:|-------|
-| `media` opens without login prompt | ⚠️ skipped | WSL2 same-host limitation — LanmanServer intercepts port 445 |
-| `files` prompts for credentials | ⚠️ skipped | Same WSL2 limitation |
-| `files` accessible after entering alice credentials | ⚠️ skipped | Same WSL2 limitation |
-| Files written from Linux visible in Windows | ⚠️ skipped | Same WSL2 limitation |
-| Files written from Windows visible in Linux | ⚠️ skipped | Same WSL2 limitation |
+| Server appears in Windows Network browser | ⬜ | wsdd2 discovery |
+| `media` opens without login prompt | ⬜ | guest ok |
+| `files` prompts for credentials | ⬜ | |
+| `files` accessible with alice credentials | ⬜ | |
+| Cross-OS file visibility (write on Linux, read on Windows) | ⬜ | |
 
 ---
 
-## Step 5 — Share Access from Android / iOS
+## Step 5 — Share Access from Android / iOS (user validation)
+
+> **Deferred to user.** Requires a physical device.
+
+Android: use any SMB client (e.g. Solid Explorer, FX File Explorer, VLC).  
+iOS: open Files app → `...` → Connect to Server → `smb://<host-ip>`.
 
 | Check | Result | Notes |
 |-------|:------:|-------|
-| `media` accessible from Android SMB client | ⬜ | |
-| `media` accessible from iOS Files app | ⬜ | |
+| `media` accessible from Android (guest) | ⬜ | |
+| `media` accessible from iOS Files (guest) | ⬜ | |
+| `files` accessible from Android with credentials | ⬜ | |
 
 ---
 
@@ -159,6 +165,6 @@ _Document any problems encountered during testing here, with the exact error and
 
 ## Result
 
-✅ **PASS** — Linux access fully verified, restart persistence confirmed, Windows-from-same-host skipped due to WSL2 LanmanServer limitation (documented in issues, not a Samba defect). Update `README.md` status and `decisions/layer_0_lan.md`.
+✅ **Linux PASS** — all automated checks green (Steps 1–3 + 6). Steps 4–5 deferred to user validation on target hardware.
 
-**Android/iOS:** not yet tested — requires a physical device on the same LAN as the WSL2 host, or testing on actual target hardware.
+**Android/iOS:** not yet tested — requires a physical device on the same LAN.

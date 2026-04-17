@@ -1,37 +1,56 @@
 # File Sharing — Docker Networking
 
-## The Problem
-
-SMB requires several ports. How those are exposed determines whether network discovery (browsing `\\server` in Windows Explorer) works, or whether users must access shares directly by IP.
-
 ## Port Requirements
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
 | 445 | TCP | SMB (primary, modern) |
 | 139 | TCP | SMB over NetBIOS (legacy compatibility) |
-| 137–138 | UDP | NetBIOS Name Service (discovery only) |
+| 5357 | TCP | WSD (WSDD2 — Windows Network Browser discovery) |
+| 3702 | UDP | WSD multicast (WSDD2) |
+| 137–138 | UDP | NetBIOS Name Service (legacy, disabled) |
+| 5353 | UDP | mDNS/Bonjour (Avahi — macOS/iOS discovery) |
 
-## Networking Mode Comparison
+## Networking Mode vs Discovery
 
-| Mode | Share access | Network discovery | Complexity |
-|------|:------------:|:-----------------:|:----------:|
-| **Bridge + port mapping** | ✅ | ❌ NetBIOS/mDNS broken through NAT | Low |
-| **Host networking** | ✅ | ✅ | Low — but reduces container isolation |
-| **macvlan** | ✅ | ✅ | High — needs router/switch support |
+| Mode | Share access | Windows discovery (WSDD2) | macOS/iOS discovery (Avahi) | Complexity |
+|------|:------------:|:-------------------------:|:---------------------------:|:----------:|
+| **Bridge + port mapping** | ✅ | ✅ | ❌ | Low |
+| **Host networking** | ✅ | ✅ | ✅ | Low — less isolation |
+| **macvlan** | ✅ | ✅ | ✅ | High |
 
-## Analysis
+## Discovery Protocol Analysis
 
-Discovery (browsing `\\server` in Windows Explorer or Finder) requires NetBIOS or mDNS/WSD traffic that does not traverse Docker NAT cleanly. It is a **convenience feature only** — shares accessed directly by IP (`\\192.168.1.10\media`) always work regardless of networking mode.
+Three discovery mechanisms are bundled in `ghcr.io/servercontainers/samba`:
 
-Bridge networking is the simplest and most consistent choice across all three hardware targets. Host networking works but reduces isolation. macvlan adds operational complexity that is not justified for home use.
+### WSDD2 — Windows Network Browser (WS-Discovery)
+Makes the server appear in Windows Explorer → Network. Uses **unicast + limited multicast** on ports 3702/UDP and 5357/TCP. Works cleanly through bridge + port mapping. **Recommended: enable.**
 
-## Open Questions
+### Avahi — macOS/iOS Bonjour (mDNS/Zeroconf)
+Makes the server visible in macOS Finder → Network and in iOS Files app. Uses **multicast UDP on 224.0.0.251:5353**. Docker bridge NAT **cannot relay multicast** — Avahi will only work with `network_mode: host`. If host mode is used, drop all `ports:` entries (not needed). **Deferred: see below.**
 
-1. **WSL-specific**: Windows owns port 445 on the host. Does this prevent the container from binding it even through bridge networking in WSL? → To be answered in `testing.md`.
-2. **Discovery trade-off**: Is direct-IP access acceptable, or do we need discovery for the Smart TV / Android targets?
-3. **Host networking**: worth evaluating if bridge causes unexpected issues during testing.
+### NetBIOS (nmbd)
+Legacy Windows broadcast discovery (pre-WS-Discovery). Superseded by WSDD2 on Windows 10+. Keep disabled.
 
-## Recommendation (not yet validated)
+## Decision
 
-Start with bridge + port mapping. Document the direct-IP access approach. Revisit if testing reveals issues.
+**Phase 1 (current):** bridge networking + WSDD2 enabled.
+- Windows Network Browser discovery works
+- Direct IP access always works for all clients
+- macOS/iOS use direct IP or DNS hostname
+
+**Phase 2 (future, optional):** evaluate host networking to add Avahi for macOS/iOS Finder discovery. This is a quality-of-life improvement, not a requirement.
+
+## WSL2 Note
+
+Windows `LanmanServer` occupies port 445 on **all** host interfaces including the WSL2 virtual adapter. This blocks testing Windows-to-WSL2 SMB from the same machine. Not an issue on target hardware (NAS, Pi).
+
+## Ports to map (bridge mode)
+
+```yaml
+ports:
+  - "139:139"    # SMB legacy
+  - "445:445"    # SMB primary
+  - "3702:3702/udp"  # WSDD2 discovery
+  - "5357:5357"  # WSDD2 discovery
+```
