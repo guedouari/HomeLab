@@ -46,9 +46,10 @@ docker compose logs samba
 | Check | Result | Notes |
 |-------|:------:|-------|
 | Container starts and stays running | ✅ | |
-| No errors in logs | ✅ | "Bad password" warning for `homelab` (similar to hostname) but accepted |
+| No errors in logs | ✅ | "Bad password" warning for `homelab` (similar to hostname) but accepted; wsdd2 `SO_RCVBUFFORCE` warning is non-fatal |
 | Logs confirm shares were created | ✅ | `testparm -s` in logs shows all 3 shares |
 | Logs confirm user accounts were created | ✅ | `alice` user created in logs |
+| wsdd2 starts | ✅ | `exec /usr/sbin/wsdd2` + `starting.` in logs |
 
 ---
 
