@@ -34,23 +34,15 @@ Legacy Windows broadcast discovery (pre-WS-Discovery). Superseded by WSDD2 on Wi
 
 ## Decision
 
-**Phase 1 (current):** bridge networking + WSDD2 enabled.
-- Windows Network Browser discovery works
-- Direct IP access always works for all clients
-- macOS/iOS use direct IP or DNS hostname
+**`network_mode: host`** — chosen to enable Avahi mDNS multicast. No port mappings needed or allowed in this mode.
 
-**Phase 2 (future, optional):** evaluate host networking to add Avahi for macOS/iOS Finder discovery. This is a quality-of-life improvement, not a requirement.
+`CAP_NET_ADMIN` required by wsdd2.
+
+**Bridge mode** is no longer used. The previous analysis (bridge + WSDD2 only) was an intermediate step. Host mode gives all three discovery daemons without trade-offs on target hardware.
 
 ## WSL2 Note
 
-Windows `LanmanServer` occupies port 445 on **all** host interfaces including the WSL2 virtual adapter. This blocks testing Windows-to-WSL2 SMB from the same machine. Not an issue on target hardware (NAS, Pi).
-
-## Ports to map (bridge mode)
-
-```yaml
-ports:
-  - "139:139"    # SMB legacy
-  - "445:445"    # SMB primary
-  - "3702:3702/udp"  # WSDD2 discovery
-  - "5357:5357"  # WSDD2 discovery
-```
+In Docker on WSL2, host mode shares the WSL2 VM's network namespace (eth0 ~192.168.x.x), not the Windows host network. Consequences:
+- Port 445: Windows `LanmanServer` intercepts it — can't reach Samba from same Windows machine
+- Avahi + wsdd2: WSL2 is NAT'd — multicast doesn't propagate to the actual LAN
+- **On real target hardware (NAS, Pi): all of the above works correctly**

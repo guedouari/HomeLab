@@ -2,53 +2,62 @@ services:
 
   # -------------------------------------------------------------------
   # Samba — LAN file sharing (SMB/CIFS)
-  # bridge + port mapping; access shares by \\<host-ip>\<sharename>
   #
-  # Discovery:
-  #   wsdd2  — enabled; Windows Network Browser discovery (WS-Discovery)
-  #   avahi  — disabled; needs network_mode: host for mDNS multicast
-  #   netbios — disabled; legacy, superseded by wsdd2 on Windows 10+
+  # network_mode: host — required for Avahi mDNS multicast (macOS/iOS
+  #   Bonjour discovery). No port mappings needed or allowed.
   #
-  # Users: one ACCOUNT_<username>=<password> env var per user
-  #   default user: alice — password comes from SAMBA_PASSWORD in .env
-  #   to add more users, duplicate the ACCOUNT_ line with a new username
-  #   and add that username to the 'valid users' list of each private share
+  # Auth model: one shared LAN credential — works out of the box on all
+  #   clients including Windows, no client configuration needed.
+  #
+  #   Windows 10+ blocks guest SMB sessions at the client driver level —
+  #   no server-side workaround exists. A real account lets Windows
+  #   authenticate cleanly: it prompts once, saves to Credential Manager,
+  #   and never asks again.
+  #
+  #   Linux / Android / macOS / iOS: connect as guest automatically.
+  #   MAP_TO_GUEST=Bad User maps any unknown/failed login to guest,
+  #   so these clients need zero configuration.
+  #
+  # Default LAN credentials: homelab / homelab
+  #   Override SAMBA_PASSWORD in .env to change the password.
+  #
+  # Discovery (all enabled):
+  #   avahi  — Bonjour; macOS Finder + iOS Files (HomeLab.local)
+  #   wsdd2  — WS-Discovery; Windows Network sidebar
+  #   netbios — legacy; older smart TVs, Android apps
+  #
+  # macOS/iOS: vfs_fruit + streams_xattr on by default — metadata,
+  #   tags and resource forks handled correctly.
   #
   # Shares:
-  #   media  — guest-accessible, read-write (smart TVs, Steam Deck, etc.)
-  #   files  — authenticated users only, read-write
-  #   backup — authenticated users only, read-write
+  #   media  — media files (Smart TV, Steam Deck, etc.)
+  #   files  — general file exchange
+  #   backup — backups
   #
   # First-run permission fix (run once after first start):
-  #   docker exec samba sh -c "
-  #     chmod 777 /shares/media &&
-  #     chown -R alice:alice /shares/files /shares/backup &&
-  #     chmod 770 /shares/files /shares/backup"
+  #   docker exec samba chmod -R 777 /shares
   # -------------------------------------------------------------------
   samba:
     image: ghcr.io/servercontainers/samba:latest
     container_name: samba
-    hostname: homelab
+    network_mode: host
+    cap_add:
+      - CAP_NET_ADMIN          # required by wsdd2
     environment:
       - TZ=${TZ}
-      # Discovery: wsdd2 enabled (Windows Network Browser), avahi/netbios disabled
-      - AVAHI_DISABLE=1
-      - NETBIOS_DISABLE=1
+      # Shared LAN account — Windows authenticates with this; others connect as guest
+      - ACCOUNT_homelab=${SAMBA_PASSWORD:-homelab}
+      - SAMBA_CONF_MAP_TO_GUEST=Bad User   # unknown/failed logins → guest
+      # Discovery — all enabled
+      - AVAHI_NAME=HomeLab
       - SAMBA_CONF_WORKGROUP=WORKGROUP
       - SAMBA_CONF_SERVER_STRING=HomeLab
-      # User accounts
-      - ACCOUNT_alice=${SAMBA_PASSWORD}
       # Share definitions — semicolons are translated to newlines by the image
       - "SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
-      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; valid users = alice; guest ok = no; read only = no; force create mode = 0660; force directory mode = 0770"
-      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; valid users = alice; guest ok = no; read only = no; force create mode = 0660; force directory mode = 0770"
+      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
     volumes:
       - ./data/media:/shares/media
       - ./data/files:/shares/files
       - ./data/backup:/shares/backup
-    ports:
-      - "139:139"
-      - "445:445"
-      - "3702:3702/udp"  # wsdd2 WS-Discovery multicast
-      - "5357:5357"      # wsdd2 WS-Discovery HTTP
     restart: unless-stopped

@@ -4,33 +4,76 @@
 
 ## Authentication Model
 
-### Options
+**Goal: works out of the box on all clients, no client configuration.**
 
-| Model | Description | Use case |
-|-------|-------------|---------|
-| **Guest / anonymous** | No credentials — anyone on LAN can read/write | Public shares (media, downloads) |
-| **Named user accounts** | Username + password required | Private shares (personal files, backup) |
-| **Mixed** | Some shares guest, some authenticated | Recommended: public media + private files |
+| Client | Behaviour |
+|--------|-----------|
+| Windows 10+ | Prompted once for `homelab` / `homelab`, saved to Credential Manager — never asked again |
+| macOS / iOS | Connects as guest automatically via Avahi (`HomeLab.local`) |
+| Linux | Connects as guest anonymously |
+| Android | Connects as guest (any SMB client) |
 
-### Proposed model
+**Why not pure guest?** Windows 10+ enforces `EnableInsecureGuestLogons=False` in the SMB client driver (`mrxsmb.sys`). This is a client-side policy — there is no server-side workaround. The only path to zero-client-config on Windows is a real account Windows can authenticate against.
 
-Mixed access:
-- Public shares (e.g. `media`) — guest readable and writable; no login prompt on any device
-- Private shares (e.g. `files`, `backup`) — require credentials
+**Why not more accounts?** One shared LAN credential is all that's needed. LAN is trusted — this is convenience, not security.
 
-User accounts added via `ACCOUNT_<username>=<password>` environment variables. No LDAP or external auth — keep it simple for Layer 0.
+**How `MAP_TO_GUEST=Bad User` works:**
+- Unknown username → mapped to guest → gets in ✅ (macOS, Android, Linux)
+- Known user (`homelab`) + wrong password → `NT_STATUS_LOGON_FAILURE` (expected — prevents guessing)
+- No credentials at all → guest ✅
 
 ---
 
-## Share Layout (proposed)
+## Networking Mode
 
-| Share | Container path | Host path | Guest access | Notes |
-|-------|---------------|-----------|:------------:|-------|
-| `media` | `/shares/media` | `./data/media` | ✅ read-write | Smart TV, Steam Deck, all devices |
-| `files` | `/shares/files` | `./data/files` | ❌ | Authenticated users only |
-| `backup` | `/shares/backup` | `./data/backup` | ❌ | Authenticated users only |
+**`network_mode: host`** — required for Avahi mDNS multicast. No port mappings needed.
 
-Volumes mounted under `/shares/` inside the container (convention for `servercontainers/samba`).
+`CAP_NET_ADMIN` capability required by wsdd2.
+
+---
+
+## Discovery
+
+All three discovery daemons enabled:
+
+| Daemon | Protocol | Clients | Notes |
+|--------|----------|---------|-------|
+| **avahi** | mDNS/Bonjour | macOS Finder, iOS Files | Advertises as `HomeLab.local` |
+| **wsdd2** | WS-Discovery | Windows Network sidebar | Needs `CAP_NET_ADMIN` |
+| **nmbd** | NetBIOS | Legacy — older TVs, Android apps | Superseded by wsdd2 but harmless |
+
+Optional Avahi tuning:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `AVAHI_NAME` | Name shown in Finder / Windows | `HomeLab` |
+| `AVAHI_INTERFACES` | Restrict to one interface | all |
+| `MODEL` | macOS device icon | `TimeCapsule` |
+
+---
+
+## Share Layout
+
+All shares accessible to all LAN users — guest or authenticated.
+
+| Share | Container path | Host path | Purpose |
+|-------|---------------|-----------|---------|
+| `media` | `/shares/media` | `./data/media` | Media files — Smart TV, Steam Deck, etc. |
+| `files` | `/shares/files` | `./data/files` | General file exchange |
+| `backup` | `/shares/backup` | `./data/backup` | Backups |
+
+---
+
+## macOS / iOS extras (built-in)
+
+The image enables `vfs_fruit` and `streams_xattr` globally by default:
+- macOS Finder metadata, tags, and resource forks handled correctly
+- iOS Files app connects cleanly
+- `fruit:model = TimeCapsule` — shows TimeCapsule icon in macOS Finder
+
+For Time Machine on a share, add `fruit:time machine = yes` to that share's config (see `horizon.md`).
+
+---
 
 ---
 

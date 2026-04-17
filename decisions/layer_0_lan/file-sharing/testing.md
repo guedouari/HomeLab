@@ -46,64 +46,69 @@ docker compose logs samba
 | Check | Result | Notes |
 |-------|:------:|-------|
 | Container starts and stays running | ✅ | |
-| No errors in logs | ✅ | "Bad password" warning for `homelab` (similar to hostname) but accepted; wsdd2 `SO_RCVBUFFORCE` warning is non-fatal |
-| Logs confirm shares were created | ✅ | `testparm -s` in logs shows all 3 shares |
-| Logs confirm user accounts were created | ✅ | `alice` user created in logs |
+| No errors in logs | ✅ | wsdd2 `SO_RCVBUFFORCE` warning is non-fatal (needs `CAP_NET_ADMIN`) |
+| Logs confirm shares were created | ✅ | `testparm -s` in logs shows all 3 shares, all `guest ok = yes` |
+| Logs confirm no user accounts created | ✅ | No `ACCOUNT_` vars — pure guest |
+| avahi starts | ✅ | `Service "HomeLab" successfully established`, hostname `HomeLab.local` |
 | wsdd2 starts | ✅ | `exec /usr/sbin/wsdd2` + `starting.` in logs |
+| nmbd (NetBIOS) starts | ✅ | `exec nmbd --foreground` in logs |
 
 ---
 
 ## Step 3 — Share Access from Linux (same host / WSL)
 
 ```bash
-# List shares anonymously
-smbclient -L //127.0.0.1 -N
+# All shares are guest — no credentials needed
+# Run from inside the container (smbclient bundled in image):
 
-# Connect to the public media share (no credentials)
-smbclient //127.0.0.1/media -N
+# List shares
+docker exec samba smbclient -L //127.0.0.1 -N
 
-# Connect to the private files share
-smbclient //127.0.0.1/files -U alice%<password>
+# Connect to any share (no -U needed)
+docker exec samba smbclient //127.0.0.1/media -N -c 'ls'
+docker exec samba smbclient //127.0.0.1/files -N -c 'ls'
 
 # Write a test file
-smbclient //127.0.0.1/media -N -c 'put /etc/hostname test-hostname.txt'
-
-# Read it back
-smbclient //127.0.0.1/media -N -c 'get test-hostname.txt /tmp/test-hostname.txt' && cat /tmp/test-hostname.txt
+docker exec samba smbclient //127.0.0.1/media -N -c 'put /etc/hostname test.txt; ls'
 ```
 
-**Note:** `smbclient` is not available in the WSL distro. All Linux tests run via `docker exec samba smbclient ...` from inside the container (image includes smbclient).
-
-**Note:** Bind mounts to Windows NTFS (`/mnt/d/...`) cause I/O errors inside Docker on WSL2. Volumes must be on the WSL-native ext4 filesystem. See Issues table.
-
-**Note:** Share directories need permissions set after first start — the image does not pre-set them. Run once:
+**Note:** Share directories need permissions set after first start. Run once:
 ```bash
-docker exec samba sh -c "
-  chmod 777 /shares/media
-  chown -R alice:alice /shares/files /shares/backup
-  chmod 770 /shares/files /shares/backup
-"
+docker exec samba chmod -R 777 /shares
 ```
 
 | Check | Result | Notes |
 |-------|:------:|-------|
 | Share list visible anonymously | ✅ | `media`, `files`, `backup`, `IPC$` listed |
-| `media` accessible without credentials | ✅ | guest ok = yes works |
-| `files` requires credentials | ✅ | unknown user → `NT_STATUS_ACCESS_DENIED` |
-| `files` accessible with correct credentials | ✅ | `alice%homelab` succeeds |
-| `files` rejected with wrong credentials | ✅ | `NT_STATUS_LOGON_FAILURE` |
-| Write to `media` succeeds | ✅ | after chmod 777 |
-| Write to `files` succeeds | ✅ | after chown alice |
-| Write to `backup` succeeds | ✅ | after chown alice |
-| File readable after write | ✅ | `ls` shows file with correct size |
+| `media` accessible without credentials (guest) | ✅ | Linux/Android path |
+| `files` accessible without credentials (guest) | ✅ | |
+| `backup` accessible without credentials (guest) | ✅ | |
+| `media` accessible as `homelab%homelab` | ✅ | Windows path |
+| Unknown username maps to guest | ✅ | `nobody%anything` → gets in as guest |
+| Wrong password for `homelab` is rejected | ✅ | `NT_STATUS_LOGON_FAILURE` (correct — not mapped to guest) |
+| Write to `media` succeeds | ✅ | |
+| Write to `files` succeeds | ✅ | |
+| File readable after write | ✅ | |
 
 ---
 
 ## Step 4 — Share Access from Windows (user validation)
 
-> **Deferred to user.** Automated testing is blocked on WSL2 — `LanmanServer` intercepts port 445 on all interfaces including the WSL2 virtual adapter. Test this from a separate machine or on target hardware.
+> **Deferred to user.** WSL2 blocks same-host testing (LanmanServer on port 445). Test from a separate machine or on target hardware.
 
-Get the host IP (on real hardware: `ip -4 addr show eth0`).
+No client configuration needed. Windows will prompt for credentials on first access:
+- Username: `homelab`
+- Password: value of `SAMBA_PASSWORD` (default: `homelab`)
+- Check "Remember my credentials" → never prompted again
+
+```
+# File Explorer address bar or Run dialog (Win+R):
+\\HomeLab.local\media     ← via avahi hostname (or use IP if avahi not working)
+\\HomeLab.local\files
+\\HomeLab.local\backup
+
+# Or browse via Windows Network sidebar (wsdd2 → appears as "HomeLab")
+```
 
 ```
 # In Windows File Explorer address bar or Run dialog:
@@ -157,10 +162,11 @@ _Document any problems encountered during testing here, with the exact error and
 
 | # | Description | Status | Resolution |
 |---|-------------|:------:|-----------|
-| 1 | Bind mounts to Windows NTFS (`/mnt/d/...`) cause `I/O error` inside Docker on WSL2 | ✅ resolved | Use WSL-native ext4 paths (e.g., `/root/homelab-test/data/`) for volume bind mounts when testing on WSL |
-| 2 | Share directories created as root:root — Samba users can't write | ✅ resolved | Run `chmod`/`chown` via `docker exec` after first start (see Step 3 note) |
-| 3 | `smbclient` not installed in WSL distro | ✅ worked around | Use `docker exec samba smbclient` — image bundles smbclient |
-| 4 | Windows `net view`/File Explorer can't reach `\\<WSL-IP>\share` from same host | ⚠️ known limitation | `LanmanServer` intercepts port 445 on all interfaces in WSL2. Test from a separate LAN machine. Not an issue on target hardware. |
+| 1 | Bind mounts to Windows NTFS (`/mnt/d/...`) cause `I/O error` inside Docker on WSL2 | ✅ resolved | Use WSL-native ext4 paths for volumes when testing on WSL |
+| 2 | Share dirs created as root — nobody can write | ✅ resolved | `docker exec samba chmod -R 777 /shares` after first start |
+| 3 | `smbclient` not in WSL distro | ✅ worked around | `docker exec samba smbclient` — image bundles it |
+| 4 | WSL2: port 445 intercepted by `LanmanServer` from same Windows host | ⚠️ known limitation | Test Windows access from separate device. Not an issue on target hardware. |
+| 5 | WSL2: Avahi/wsdd2 multicast doesn't propagate to LAN (NAT) | ⚠️ known limitation | Discovery only works on real hardware. |
 
 ---
 
