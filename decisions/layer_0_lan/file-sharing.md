@@ -19,15 +19,24 @@ NFS is eliminated immediately — the device matrix in [device-support-matrix.md
 
 ## Candidates
 
-### Samba (Docker container via linuxserver/samba)
+### Samba (Docker container)
 
-Samba implements the SMB/CIFS protocol. The linuxserver image is available and well-maintained.
+Samba implements the SMB/CIFS protocol. No linuxserver image exists for Samba. Verified candidate images:
+
+> **Image verification** — before finalising any service choice, confirm the Docker image exists and document the exact registry path. Pull the image or check the source registry directly; do not rely on documentation that has not been tested.
+
+| Image | Registry | Maintained | Notes |
+|-------|----------|:----------:|-------|
+| `servercontainers/samba` | `ghcr.io/servercontainers/samba` | ✅ | Actively updated; env-var config; supports wsdd2, Time Machine |
+| `crazymax/samba` | Docker Hub | ✅ | Multi-arch; YAML-based config |
+| `dperson/samba` | Docker Hub | ❌ | Unmaintained (4+ years); excluded |
+
+**Chosen image: `ghcr.io/servercontainers/samba`** — actively maintained, env-var driven (fits Compose), modern SMB support.
 
 **Pros:**
 - Universal client support across all devices in the matrix
-- linuxserver image available
 - Works on all three hardware targets (Steam Machine, NAS, Raspberry Pi)
-- Well understood; large community and documentation
+- Well understood protocol; large community and documentation
 - Coexists with native NAS shares on the same machine without conflict (different share names, same protocol)
 
 **Cons:**
@@ -99,7 +108,7 @@ To be decided at implementation time, but the likely default:
 
 - Must be accessible from all device types in [device-support-matrix.md](../device-support-matrix.md)
 - Must not be exposed outside the LAN
-- linuxserver image required
+- Docker image must be verified and actively maintained
 
 ---
 
@@ -111,8 +120,8 @@ To be decided at implementation time, but the likely default:
 
 ## Status
 
-**Decided: Samba (linuxserver/samba) across all hardware targets**
+**Decided: Samba (`ghcr.io/servercontainers/samba`) across all hardware targets**
 
-Standardizing on a single Samba container keeps the stack consistent and automatable. Native NAS shares may remain active in parallel but are not the managed path.
+No linuxserver image exists for Samba. `servercontainers/samba` is the actively maintained choice — env-var config, modern SMB support, multi-arch. Standardizing on a single Samba container keeps the stack consistent and automatable. Native NAS shares may remain active in parallel but are not the managed path.
 
 Docker networking and share layout remain open until implementation.

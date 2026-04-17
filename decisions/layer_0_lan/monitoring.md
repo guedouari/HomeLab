@@ -19,28 +19,26 @@ Phone alerts can be fully operational at Layer 0 without any WAN setup. The dash
 
 ---
 
-## Constraint Conflict: linuxserver vs PostgreSQL
+## Constraint Conflict: PostgreSQL
 
-The project strategy defines two relevant rules:
-1. **linuxserver.io images first** — use the linuxserver image when one exists
-2. **PostgreSQL first** — if a service supports PostgreSQL, it uses the shared instance
+The project strategy defines a **PostgreSQL-first** rule — if a service supports PostgreSQL, it uses the shared instance. No monitoring tool that is also the strongest overall candidate currently satisfies this. This is an honest conflict that must be resolved.
 
-No monitoring tool currently satisfies both. This is an honest conflict that must be resolved.
+> **Image verification** — before finalising any service choice, confirm the Docker image exists and document the exact registry path. Pull the image or check the source registry directly; do not rely on documentation that has not been tested.
 
-| Tool | linuxserver image | PostgreSQL backend | Phone notifications |
-|------|:-----------------:|:-----------------:|---------------------|
-| **Uptime Kuma** | ✅ | ❌ (in development) | ✅ ntfy, Telegram, 90+ channels |
-| **Statping-ng** | ❌ | ✅ first-class | ✅ Telegram, Slack, webhook (ntfy via webhook) |
-| **Gatus** | ❌ | ❌ (BoltDB only) | Limited |
-| **Beszel** | ❌ | ❌ (embedded) | System metrics only — wrong scope |
+| Tool | Verified image | PostgreSQL backend | Phone notifications |
+|------|---------------|:-----------------:|---------------------|
+| **Uptime Kuma** | `louislam/uptime-kuma:2` (Docker Hub + ghcr.io) | ❌ (in development) | ✅ ntfy, Telegram, 90+ channels |
+| **Statping-ng** | `statping/statping-ng` (Docker Hub) | ✅ first-class | ✅ Telegram, Slack, webhook (ntfy via webhook) |
+| **Gatus** | `twinproduction/gatus` (Docker Hub) | ❌ (BoltDB only) | Limited |
+| **Beszel** | `henrygd/beszel` (Docker Hub) | ❌ (embedded) | System metrics only — wrong scope |
 
 ---
 
 ## Candidates
 
-### Uptime Kuma (linuxserver/uptime-kuma)
+### Uptime Kuma
 
-- linuxserver image ✅
+- Verified image: `louislam/uptime-kuma:2` (Docker Hub and `ghcr.io/louislam/uptime-kuma:2`) — no linuxserver image exists
 - HTTP, TCP, ping, DNS, keyword, and more monitor types
 - Rich notification ecosystem: ntfy, Telegram, Discord, Slack, email, 90+ channels — all configured in UI
 - Clean, user-friendly dashboard; active development
@@ -49,15 +47,17 @@ No monitoring tool currently satisfies both. This is an honest conflict that mus
 
 ### Statping-ng
 
-- No linuxserver image ❌ — uses own `statping/statping-ng` Docker image
+- Verified image: `statping/statping-ng` (Docker Hub)
 - **PostgreSQL**: first-class support via `DB_DRIVER=postgres`
 - HTTP monitoring, status page UI
 - Notifications: Telegram, Slack, Discord, webhooks, email, Twilio; ntfy reachable via webhook
 - Active development (v0.93.0, June 2025); smaller community than Uptime Kuma
 
-### Gatus / Beszel
+### Gatus / Beszel / Checkmk
 
-Eliminated: Gatus has no PostgreSQL and no linuxserver image. Beszel monitors system metrics (CPU/RAM/disk), not service uptime — wrong tool entirely.
+Eliminated for Layer 0: Gatus has no PostgreSQL backend and limited notifications. Beszel monitors system metrics (CPU/RAM/disk), not service uptime — wrong tool entirely.
+
+**Checkmk** (`checkmk/check-mk-raw`) is noted as a strong future candidate for Layer 1+ — all-in-one uptime, metrics, alerting, and inventory in a single container, scales well across multiple hosts. To be re-evaluated when monitoring becomes a higher priority.
 
 ---
 
@@ -75,11 +75,11 @@ The monitoring tool's data is **uniquely non-critical** compared to every other 
 Uptime history is observability data, not user data. It reconstructs itself simply by running. This makes monitoring the **most defensible SQLite exception** in the entire stack.
 
 Choosing Statping-ng to satisfy the PostgreSQL rule would mean:
-- Violating the linuxserver-first rule (no linuxserver image exists)
 - Accepting a smaller notification ecosystem (no native ntfy)
 - Taking on a smaller-community tool
+- No meaningful gain — monitoring data is the least critical dataset in the stack
 
-That is a net loss across three criteria in exchange for PostgreSQL compliance on the least critical dataset. **Uptime Kuma is the correct choice.**
+That is a net loss across multiple criteria in exchange for PostgreSQL compliance on the least critical dataset. **Uptime Kuma is the correct choice.**
 
 ---
 
@@ -87,7 +87,7 @@ That is a net loss across three criteria in exchange for PostgreSQL compliance o
 
 Explicit, reasoned, and time-limited exception to the PostgreSQL-first strategy:
 
-- **Reason**: PostgreSQL backend not yet available upstream; monitoring data is non-critical; linuxserver image satisfies rule #1
+- **Reason**: PostgreSQL backend not yet available upstream; monitoring data is non-critical; official vendor image `louislam/uptime-kuma:2` verified
 - **Migration path**: PostgreSQL support is in active upstream development. When it ships, Uptime Kuma migrates to the shared instance — no tool change needed.
 - **Backup**: the SQLite file (`kuma.db`) is a single file, backed up with the container volume — simpler than a pg_dump, acceptable for non-critical observability data.
 
@@ -126,7 +126,7 @@ Phone notifications work at Layer 0 — the server makes outbound connections to
 
 ## Constraints
 
-- Must run as a Docker container (linuxserver image required)
+- Must run as a Docker container (official vendor image; verified and actively maintained)
 - Must support push notifications to phone at Layer 0 (outbound only)
 - Must be exposable via reverse proxy at Layer 1 without architectural changes
 
@@ -139,6 +139,8 @@ Phone notifications work at Layer 0 — the server makes outbound connections to
 
 ## Status
 
-**Decided: Uptime Kuma (linuxserver/uptime-kuma)**
+**Decided: Uptime Kuma (`louislam/uptime-kuma:2`) — provisional**
 
-SQLite is an explicit, reasoned, and time-limited exception to the PostgreSQL-first rule. Statping-ng (PostgreSQL-native) was evaluated and rejected: no linuxserver image, weaker notification ecosystem. Uptime Kuma migrates to the shared PostgreSQL instance when upstream support ships.
+No linuxserver image exists for Uptime Kuma. Official image `louislam/uptime-kuma:2` is verified (Docker Hub + ghcr.io). SQLite is an explicit, reasoned, and time-limited exception to the PostgreSQL-first rule. Statping-ng (PostgreSQL-native) was evaluated and rejected: weaker notification ecosystem, smaller community. Uptime Kuma migrates to the shared PostgreSQL instance when upstream support ships.
+
+**To revisit at Layer 1**: Checkmk (`checkmk/check-mk-raw`) is the leading alternative — multi-purpose, single container, scales across hosts and layers without architectural change.

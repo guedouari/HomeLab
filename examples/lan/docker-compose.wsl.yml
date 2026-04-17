@@ -1,0 +1,16 @@
+# WSL2 testing override
+#
+# Windows owns port 445 (SMB); WSL2 cannot bind it.
+# This override remaps Samba to host ports 1139/4445 so the
+# full stack can run and be verified inside WSL.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
+#
+# This file is NOT used on a real Linux host.
+
+services:
+  samba:
+    ports:
+      - "1139:139"
+      - "4445:445"

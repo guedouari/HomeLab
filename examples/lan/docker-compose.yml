@@ -1,0 +1,70 @@
+networks:
+  internal:
+    driver: bridge
+
+services:
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS filtering + local DNS rewrites
+  # host networking required so port 53 binds directly on the host NIC
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    volumes:
+      - ./config/adguardhome/conf:/opt/adguardhome/conf
+      - ./config/adguardhome/work:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Samba — LAN file sharing (SMB/CIFS)
+  # bridge + port mapping; access by IP works without discovery
+  # share configuration done via environment variables at implementation
+  # -------------------------------------------------------------------
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/samba:/etc/samba
+      - ./data/media:/data/media
+      - ./data/files:/data/files
+      - ./data/backup:/data/backup
+    ports:
+      - "139:139"
+      - "445:445"
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Uptime Kuma — service uptime monitoring + phone alerts (ntfy)
+  # SQLite exception: PostgreSQL backend not yet available upstream
+  # provisional: Checkmk to be re-evaluated at Layer 1
+  # -------------------------------------------------------------------
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    volumes:
+      - ./config/uptime-kuma:/app/data
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # PostgreSQL — shared database server (internal network only)
+  # pgvector/pgvector:pg17 — pgvector pre-installed (required for Immich)
+  # no published ports; services connect via the internal bridge network
+  # -------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: postgres
+    networks:
+      - internal
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped

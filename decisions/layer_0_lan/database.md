@@ -21,29 +21,32 @@ For a home server where RAM is a real constraint (Raspberry Pi, Steam Machine ru
 
 ## Candidates
 
-### MariaDB (linuxserver/mariadb)
+> **Image verification** — before finalising any service choice, confirm the Docker image exists and document the exact registry path. Pull the image or check the source registry directly; do not rely on documentation that has not been tested.
+
+### MariaDB (`lscr.io/linuxserver/mariadb`)
 
 MySQL-compatible relational database.
 
 | Property | Value |
 |----------|-------|
-| linuxserver image | ✅ |
+| Verified image | `lscr.io/linuxserver/mariadb` ✅ (linuxserver, actively maintained) |
 | Nextcloud support | ✅ officially recommended |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
 | Immich support | ❌ Immich requires PostgreSQL (pgvector extension) |
 
-### PostgreSQL (linuxserver/postgresql)
+### PostgreSQL (`pgvector/pgvector:pg17`)
 
-Advanced open-source relational database.
+Advanced open-source relational database with pgvector pre-installed.
 
 | Property | Value |
 |----------|-------|
-| linuxserver image | ✅ |
+| Verified image | `pgvector/pgvector:pg17` ✅ (Verified Publisher, Docker Hub) |
+| linuxserver image | ❌ does not exist (`lscr.io/linuxserver/postgresql` is fictional) |
 | Nextcloud support | ✅ officially supported |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
-| Immich support | ✅ required (needs pgvector) |
+| Immich support | ✅ required (pgvector pre-installed in this image) |
 
 ---
 
@@ -72,7 +75,8 @@ Reasons:
 - Only engine that covers all current and planned services (including Immich's pgvector requirement)
 - Nextcloud officially supports PostgreSQL — no degraded experience vs MariaDB
 - One engine to operate, back up, and understand
-- linuxserver image available
+- `pgvector/pgvector:pg17` is a Verified Publisher image with pgvector pre-installed — resolves the pgvector open decision immediately
+- No linuxserver image exists; `pgvector/pgvector:pg17` is the correct verified choice
 - Per-service isolation via separate databases and users
 
 ### Instance model
@@ -98,7 +102,7 @@ Several Layer 2 services (notably Nextcloud) benefit significantly from a **cach
 
 ## Constraints
 
-- Must run as a Docker container (linuxserver image required)
+- Must run as a Docker container (official vendor image; verified and actively maintained)
 - Must be reachable by containers across Docker networks (internal bridge network)
 - Must not be exposed outside the Docker network (no published ports)
 
@@ -106,11 +110,10 @@ Several Layer 2 services (notably Nextcloud) benefit significantly from a **cach
 
 ## Open Decisions
 
-1. **pgvector**: confirm linuxserver/postgresql image includes pgvector, or determine how to add it (needed for Immich at Layer 2)
-2. **Backup strategy**: how and when to back up the shared instance — decided at implementation
+1. **Backup strategy**: how and when to back up the shared instance — decided at implementation
 
 ## Status
 
-**Decided: PostgreSQL (linuxserver/postgresql) — single shared instance**
+**Decided: PostgreSQL (`pgvector/pgvector:pg17`) — single shared instance**
 
-Deployment details and pgvector confirmation remain open until implementation.
+`lscr.io/linuxserver/postgresql` does not exist. `pgvector/pgvector:pg17` is the verified replacement — Verified Publisher on Docker Hub, pgvector pre-installed, multi-arch (AMD64 + ARM64). The pgvector open decision is resolved by the image choice. Deployment details and backup strategy remain open until implementation.

@@ -68,7 +68,59 @@ All subsequent commands in this section are run **inside WSL**.
 
 ---
 
-## 4. Install Docker Engine
+## 4. Remove Windows PATH from WSL
+
+By default WSL appends your Windows `PATH` to the Linux `PATH`. This causes Windows binaries (e.g. `python.exe`, `node.exe`) to shadow Linux ones and can produce confusing errors during Docker setup.
+
+Disable the behaviour by adding an `[interop]` section to `/etc/wsl.conf`:
+
+```bash
+sudo tee /etc/wsl.conf > /dev/null <<'EOF'
+[interop]
+appendWindowsPath = false
+EOF
+```
+
+Then restart the distro from PowerShell so the change takes effect:
+
+```powershell
+wsl --terminate homelab-test
+wsl -d homelab-test
+```
+
+Verify the Windows paths are gone:
+
+```bash
+echo $PATH   # should contain only Linux paths such as /usr/local/sbin, /usr/bin, etc.
+```
+
+---
+
+## 5. Activate Corporate / Custom CA Certificates in WSL
+
+If your organisation uses a private CA (e.g. for HTTPS inspection or internal registries), tools such as `apt`, `curl`, and Docker will fail with TLS errors unless the root certificate is trusted inside the distro.
+
+```bash
+# Copy the certificate file into the system CA directory
+# Adjust the source path to wherever your .crt file lives on the Windows host
+sudo cp /mnt/c/path/to/your-corp-ca.crt /usr/local/share/ca-certificates/
+
+# Rebuild the system CA bundle
+sudo apt-get install -y ca-certificates
+sudo update-ca-certificates
+```
+
+Verify the certificate was added:
+
+```bash
+grep "your-corp-ca" /etc/ssl/certs/ca-certificates.crt
+```
+
+> **Docker trust:** Docker Engine reads the system CA bundle, so the certificate will also be trusted for image pulls from private registries once `update-ca-certificates` has been run.
+
+---
+
+## 6. Install Docker Engine
 
 ```bash
 # Update package index
@@ -89,7 +141,7 @@ docker compose version
 
 ---
 
-## 5. Access the Project Files
+## 7. Access the Project Files
 
 Your Windows drive is automatically mounted inside WSL. No copying needed.
 
@@ -109,7 +161,7 @@ ls -la
 
 ---
 
-## 6. Run the Stack
+## 8. Run the Stack
 
 ```bash
 # From the project root inside WSL
@@ -127,7 +179,7 @@ docker compose down -v
 
 ---
 
-## 7. Cleanup
+## 9. Cleanup
 
 When you are done testing, remove the WSL instance entirely:
 
@@ -151,6 +203,8 @@ The Docker install script may require a shell restart:
 exec bash
 docker --version
 ```
+
+If Ubuntu suggests installing `wmdocker`, ignore that suggestion. `wmdocker` is an unrelated Window Maker dock app, not Docker Engine. Use the official Docker install step in this guide instead.
 
 ### WSL 2 kernel not found
 
