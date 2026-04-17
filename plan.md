@@ -11,13 +11,12 @@ This plan keeps scope tight: define the foundation, keep choices simple, and bui
 ## Finalized Decisions
 
 - Container platform: Docker Engine + Docker Compose
-- Image source: linuxserver.io (preferred for all services where available)
 - Orchestration model: single-node
 
 ## Preferred / Proposed (not yet finalized)
 
-- Layer 1 reverse proxy: SWAG (linuxserver/swag) — preferred, decision pending
-- On-demand startup: Sablier — preferred, decision pending
+- Layer 1 reverse proxy: TBD — under evaluation
+- On-demand startup: TBD — under evaluation
 
 ## Core Principles
 
@@ -33,9 +32,9 @@ This plan keeps scope tight: define the foundation, keep choices simple, and bui
 Goal: make all required devices work on the local network reliably.
 
 Capabilities needed:
-- DNS filtering (candidate: Pi-hole)
-- File sharing (candidate: Samba on generic hosts, native NAS shares on NAS)
-- Monitoring (candidate: Uptime Kuma)
+- DNS filtering
+- File sharing
+- Monitoring
 
 Outcome:
 - Steam Deck, phones, and laptops can use the home stack on LAN.
@@ -45,10 +44,10 @@ Outcome:
 Goal: secure remote access path.
 
 Capabilities needed:
-- VPN (candidate: WireGuard)
+- VPN
 - Private domain
-- Reverse proxy with TLS (candidate: SWAG + Certbot DNS challenge)
-- On-demand startup (candidate: Sablier)
+- Reverse proxy with TLS
+- On-demand startup
 
 Depends on: Layer 0
 
@@ -56,9 +55,9 @@ Depends on: Layer 0
 Goal: user-selected apps only.
 
 Primary examples:
-- Nextcloud
-- Vaultwarden
-- Media services (Jellyfin, Immich)
+- File sync and productivity suite
+- Password manager
+- Media services (server + photo backup)
 
 Rules:
 - Users can install one service or many.
@@ -68,8 +67,8 @@ Rules:
 Goal: extra experimentation after core stack is stable.
 
 Primary examples:
-- Personal/local LLM
-- GPU-heavy services on Steam machine
+- Local LLM / AI assistant
+- GPU-heavy workloads on high-end hardware
 
 Rules:
 - Requires Layers 0, 1, and 2.
@@ -84,10 +83,10 @@ Rules:
 
 ## Open Decisions (Layer 0 first)
 
-1. ✅ DNS filtering service: AdGuard Home
-2. ✅ File sharing service: Samba (linuxserver/samba) — all hardware targets
-3. ✅ Monitoring service: Uptime Kuma (linuxserver/uptime-kuma) + ntfy for phone alerts
-4. ✅ Database server: PostgreSQL (linuxserver/postgresql) — single shared instance
+1. DNS filtering service: under evaluation
+2. File sharing service: under evaluation
+3. Monitoring service: under evaluation
+4. Database server: under evaluation
 5. DNS networking mode on target host: bridge, macvlan, or host networking — decided at implementation
 
 ## Current Scope Guardrails

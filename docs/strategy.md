@@ -14,6 +14,8 @@ When selecting Docker images, **[linuxserver.io](https://www.linuxserver.io/) im
 
 When a linuxserver image exists for a service, it should be used. Alternative images (e.g., official upstream images) are acceptable only when linuxserver does not provide one, or when there is a clear technical reason to prefer another.
 
+**Image verification is mandatory.** Before any image is referenced anywhere in the project, confirm it exists by pulling it from the registry or checking the source directly. Do not document an image path that has not been tested. Linuxserver does not cover every service — always verify before assuming.
+
 ---
 
 ## 2. Free and Open Source (FOSS) First
@@ -91,11 +93,10 @@ One PostgreSQL instance means one backup job, one restore procedure, and one poi
 **The rule:**
 > If a service supports PostgreSQL, it **will** use the shared PostgreSQL instance — even if SQLite is the service's default or recommended option.
 
-This applies across all layers. SQLite is only acceptable when a service has **no PostgreSQL support at all** (e.g., Uptime Kuma currently). The moment PostgreSQL support becomes available for such a service, migration is the expected path.
+This applies across all layers. SQLite is only acceptable when a service has **no PostgreSQL support at all**. The moment PostgreSQL support becomes available for such a service, migration is the expected path.
 
 **Why PostgreSQL over MariaDB:**
-- The only engine that covers all planned services — **Immich requires PostgreSQL with pgvector** and cannot use MariaDB at all
-- Nextcloud officially supports PostgreSQL; no capability is lost versus MariaDB
+- The only engine that covers all planned service categories, including those that require PostgreSQL with the pgvector extension and cannot use MariaDB at all
 - One engine to operate, monitor, and back up
 
 **Instance model:** each service gets its own database and dedicated user — isolation at the credential level, not the container level.

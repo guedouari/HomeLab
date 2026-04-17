@@ -25,21 +25,20 @@ HomeLab turns a small home server into a private, always-available infrastructur
 | **File sharing** | LAN file shares (NAS-like access from any OS) |
 
 ### 2. Data Privacy
-| Service | Role |
-|---------|------|
-| **Nextcloud** | Central hub — files, photos, calendars, contacts, notes, document editing |
-| **Nextcloud Talk** | Encrypted messaging & video calls (replaces WhatsApp / Zoom) |
-| **Nextcloud Mail** | Webmail client (optional) |
-| **Vaultwarden** | Self-hosted Bitwarden-compatible password manager |
+| Capability | Role |
+|------------|------|
+| **File sync suite** | Central hub — files, photos, calendars, contacts, notes, document editing |
+| **Encrypted messaging** | Self-hosted video calls and chat |
+| **Password manager** | Self-hosted, Bitwarden-compatible |
 
 ### 3. Extensible Services (opt-in)
-| Service | Role |
-|---------|------|
-| **Jellyfin** | Media server — movies, music, TV (replaces Plex / Netflix) |
-| **Immich** | Photo & video backup (replaces Google Photos) |
-| **Gitea** | Self-hosted Git (replaces GitHub) |
-| **Homepage** | Unified dashboard for all services |
-| **Uptime Kuma** | Internal health monitoring |
+| Capability | Role |
+|------------|------|
+| **Media server** | Movies, music, TV — replaces streaming subscriptions |
+| **Photo backup** | Self-hosted Google Photos alternative |
+| **Git hosting** | Self-hosted source code management |
+| **Dashboard** | Unified view of all running services |
+| **Uptime monitoring** | Internal health checks and phone alerts |
 
 ---
 
@@ -48,12 +47,12 @@ HomeLab turns a small home server into a private, always-available infrastructur
 | Layer | Status | Choice |
 |-------|--------|--------|
 | Containers | ✅ Final | **Docker + Compose** — portable, well-documented, broad hardware support |
-| Images | ✅ Final | **linuxserver.io** — consistent, community-maintained, ARM64 + x86_64 |
-| Reverse proxy | Proposed | SWAG (linuxserver/swag) — automatic TLS, linuxserver ecosystem |
-| On-demand startup | Proposed | Sablier — starts containers on request, stops them after idle |
-| DNS filtering | Proposed | Pi-hole — network-wide ad blocking and local DNS |
-| VPN | Proposed | WireGuard — WAN layer secure tunnel |
-| Core app | Proposed | Nextcloud — self-hosted productivity suite |
+| Images | Strategy | **linuxserver.io preferred** — verified per-service before use; other registries where no linuxserver image exists |
+| Reverse proxy | 🔍 TBD | Under evaluation |
+| On-demand startup | 🔍 TBD | Under evaluation |
+| DNS filtering | 🔍 TBD | Under evaluation |
+| VPN | 🔍 TBD | Under evaluation |
+| Core apps | 🔍 TBD | Under evaluation |
 
 ---
 
@@ -86,20 +85,12 @@ Local DNS overrides resolve `*.home.yourdomain.com` to the internal server IP on
 
 ```
 HomeLab/
-├── docker/
-│   ├── core/           # Pi-hole, SWAG/Caddy, Sablier
-│   ├── nextcloud/      # Nextcloud + DB + Redis
-│   ├── privacy/        # Vaultwarden, Immich
-│   ├── media/          # Jellyfin (on-demand)
-│   └── dev/            # Gitea, Homepage, Uptime Kuma
-├── config/
-│   ├── caddy/          # Caddyfile templates
-│   ├── swag/           # NGINX site configs
-│   └── pihole/         # DNS records, adlists
-├── scripts/
-│   ├── install.sh      # Bootstrap script
-│   └── update.sh       # Pull & restart stack
-├── plan.md             # Detailed architecture & decisions
+├── examples/
+│   ├── lan/            # Layer 0 — LAN stack
+│   ├── wan/            # Layer 1 — WAN + reverse proxy + VPN
+│   └── services/       # Layer 2 — opt-in user services
+├── decisions/          # Per-capability decision records
+├── docs/               # Guides and strategy
 └── README.md
 ```
 
@@ -110,10 +101,10 @@ HomeLab/
 > Full setup instructions will be added as each phase of [plan.md](plan.md) is implemented.
 
 1. Clone the repo to your server.
-2. Copy `.env.example` to `.env` and fill in your domain, credentials, and network settings.
-3. Run `scripts/install.sh` to bootstrap Docker, create networks, and start the core stack.
-4. Point Pi-hole as the DNS server on your router (or per-device).
-5. Access services at `https://*.home.yourdomain.com`.
+2. Copy `.env.example` to `.env` and fill in your credentials and network settings.
+3. Start the stack with `docker compose up -d`.
+4. Configure your router to use the server's IP as its DNS server.
+5. Access services by IP on the LAN until DNS is configured.
 
 ---
 

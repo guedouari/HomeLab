@@ -9,10 +9,10 @@ All four services deploy with a single `docker compose up -d`.
 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
-| AdGuard Home | lscr.io/linuxserver/adguardhome | 53 (UDP+TCP), 3000 (UI) | DNS filtering + local rewrites |
-| Samba | lscr.io/linuxserver/samba | 139, 445 | LAN file sharing (SMB) |
-| Uptime Kuma | lscr.io/linuxserver/uptime-kuma | 3001 | Uptime monitoring + alerts |
-| PostgreSQL | lscr.io/linuxserver/postgresql | internal only | Shared database server |
+| AdGuard Home | adguard/adguardhome | 53 (UDP+TCP), 3000 (UI) | DNS filtering + local rewrites |
+| Samba | ghcr.io/servercontainers/samba | 139, 445 | LAN file sharing (SMB) |
+| Uptime Kuma | louislam/uptime-kuma | 3001 | Uptime monitoring + alerts |
+| PostgreSQL | pgvector/pgvector:pg17 | internal only | Shared database server |
 
 ---
 
@@ -26,8 +26,8 @@ cp .env.example .env
 
 Edit `.env`:
 
-- **PUID / PGID** — must match your Linux user. Run `id $(whoami)` and use the values shown.
 - **TZ** — your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. `Europe/Paris`.
+- **SAMBA_PASSWORD** — password for the default Samba user `alice`. Change before starting.
 - **POSTGRES_PASSWORD** — change from the placeholder before starting.
 
 ### 2. Free port 53 (Linux / WSL with systemd)
@@ -55,7 +55,6 @@ The data directories are excluded from git. Create them before first run:
 ```bash
 mkdir -p data/media data/files data/backup data/postgres
 ```
-
 ---
 
 ## Running
@@ -98,9 +97,19 @@ docker compose ps
 # PostgreSQL responding?
 docker exec -it postgres psql -U "${POSTGRES_USER:-postgres}" -c '\l'
 
-# Samba shares visible? (from another machine on LAN)
-# Windows: \\<host-ip>
-# Linux:   smbclient -L //<host-ip> -N
+# Samba — list shares anonymously (media share should appear)
+smbclient -L //<host-ip> -N
+
+# Samba — connect to the public media share (no credentials)
+smbclient //<host-ip>/media -N
+
+# Samba — connect to the private files share as alice
+smbclient //<host-ip>/files -U alice%<your-SAMBA_PASSWORD>
+
+# From Windows — open File Explorer and navigate to:
+#   \\<host-ip>\media     (no login prompt — guest access)
+#   \\<host-ip>\files     (login prompt — use alice / <your-SAMBA_PASSWORD>)
+#   \\<host-ip>\backup    (login prompt — use alice / <your-SAMBA_PASSWORD>)
 ```
 
 ---

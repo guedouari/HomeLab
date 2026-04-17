@@ -7,23 +7,21 @@ This file records finalized platform decisions for the current scope.
 | Area | Decision |
 |------|----------|
 | Container platform | Docker Engine + Docker Compose |
-| Image source | linuxserver.io (preferred for all services where available) |
+| Image source | linuxserver.io preferred — verified per-service before use |
 | Orchestration model | Single-node |
 
 ## Preferred / Proposed (not yet finalized)
 
 | Area | Candidate | Notes |
 |------|-----------|-------|
-| Reverse proxy (Layer 1) | SWAG (linuxserver/swag) | Preferred; aligns with linuxserver ecosystem |
-| On-demand startup | Sablier | Preferred; starts services on request, stops after idle |
+| Reverse proxy (Layer 1) | TBD | Under evaluation |
+| On-demand startup | TBD | Under evaluation |
 
 ## Why these choices
 
 - Docker Compose is the simplest and most portable option across mini PC, Raspberry Pi, and NAS-style environments.
 - Single-node keeps operations manageable for home use.
-- linuxserver.io images provide consistent, well-maintained containers across ARM64 and x86_64.
-- SWAG is the preferred reverse proxy to align with linuxserver images and established community patterns.
-- Sablier preserves host resources by starting non-essential services only when requested.
+- linuxserver.io images provide consistent, well-maintained containers across ARM64 and x86_64, where they exist. Every image must be verified before being referenced.
 
 ---
 
@@ -39,7 +37,7 @@ This file records finalized platform decisions for the current scope.
 | linuxserver.io | `lscr.io` | Preferred source for this project. Proxies and re-hosts their images independently of Docker Hub to avoid rate limits. Actively maintained; supports `linux/amd64` and `linux/arm64`. |
 | Self-hosted (e.g. Gitea, Zot, Harbor) | internal | Future option for private images or caching. Not in scope for Layer 0. |
 
-**Practical implication:** All Layer 0 images are sourced from `lscr.io`. This avoids Docker Hub rate limits entirely and keeps the image supply chain within a single, community-maintained source.
+**Practical implication:** Images are sourced from whichever registry hosts the verified, actively maintained image for that service. linuxserver.io (`lscr.io`) is preferred where a linuxserver image exists. For services without a linuxserver image, the official vendor registry is used. Every image source must be confirmed before being documented.
 
 ---
 
