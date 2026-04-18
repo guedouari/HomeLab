@@ -1,0 +1,7 @@
+# CrowdSec local config override
+# This file is merged on top of the default config.yaml — only add what you override.
+
+api:
+  server:
+    # Move LAPI off default port 8080 (conflicts with Gatus status dashboard)
+    listen_uri: 0.0.0.0:8090

@@ -55,6 +55,25 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------
+  # CrowdSec — intrusion detection + community IP blocklist (Layer 1)
+  # -------------------------------------------------------------------
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - COLLECTIONS=crowdsecurity/linux crowdsecurity/sshd crowdsecurity/iptables
+      - GID=1000
+    volumes:
+      - ./config/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ./config/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
+      - ./data/crowdsec:/var/lib/crowdsec/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
   # WireGuard — VPN (inherited from Layer 1)
   # -------------------------------------------------------------------
   wireguard:
