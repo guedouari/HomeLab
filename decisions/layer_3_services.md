@@ -30,16 +30,17 @@ Each candidate is evaluated on its own merits before being added. Immich is a se
 
 | Service | Category | Status |
 |---------|----------|--------|
-| PostgreSQL | Database (shared) | 🔍 Introduce when first service needs it |
-| Nextcloud | Files, contacts, calendar | 🔍 Not yet evaluated |
-| Immich | Photo management | 🔍 Not yet evaluated |
+| PostgreSQL | Database (shared) | ✅ Done |
+| Redis | Cache + file locking | ✅ Done |
+| Nextcloud | Files, contacts, calendar | ✅ Done |
+| Immich | Photo management | 🔍 Not yet evaluated — defer until Nextcloud Photos is assessed |
 
 ## Open Decisions
 
-1. Is Nextcloud worth running for this specific household? (storage, sync, mobile clients)
-2. Immich vs Nextcloud Photos — separate service or module?
-3. PostgreSQL image: `postgres:17` (plain) or `pgvector/pgvector:pg17`? Decide when a service requiring pgvector is confirmed.
-4. Backup strategy: single `pg_dumpall` job covering all service databases
+1. ~~Is Nextcloud worth running?~~ — yes, confirmed by user
+2. ~~PostgreSQL image: plain vs pgvector?~~ — plain `postgres:17` (Nextcloud doesn't need pgvector)
+3. Immich vs Nextcloud Photos — evaluate after Nextcloud is deployed; Nextcloud Photos may be sufficient
+4. Backup strategy — `pg_dumpall` + volume tar; see `examples/services/README.md`
 
 ## Notes on Database
 
