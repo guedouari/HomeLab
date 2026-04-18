@@ -1,0 +1,27 @@
+# WSL2 gatus config — uses port 8082 to avoid wslrelay conflict on 8080
+# This file is only used via docker-compose.wsl.yml overlay
+
+web:
+  port: 8082
+
+endpoints:
+  - name: AdGuard Home
+    url: http://${SERVER_IP}:3000
+    interval: 60s
+    conditions:
+      - '[STATUS] == 200'
+
+  - name: DNS (AdGuard)
+    url: '${SERVER_IP}'
+    dns:
+      query-name: google.com
+      query-type: A
+    interval: 60s
+    conditions:
+      - '[DNS_RCODE] == NOERROR'
+
+  - name: Samba (SMB port)
+    url: tcp://${SERVER_IP}:445
+    interval: 60s
+    conditions:
+      - '[CONNECTED] == true'

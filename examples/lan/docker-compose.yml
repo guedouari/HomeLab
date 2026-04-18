@@ -79,7 +79,7 @@ services:
   # After starting: set the server's IP as Primary DNS in router DHCP.
   #   All devices on the LAN will use AdGuard Home automatically.
   #
-  # Web UI: http://<host-ip>   (admin / see ADGUARD_PASSWORD in .env)
+  # Web UI: http://<host-ip>:3000   (admin / see ADGUARD_PASSWORD in .env)
   # -------------------------------------------------------------------
   adguardhome:
     image: adguard/adguardhome:latest

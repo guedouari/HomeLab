@@ -1,0 +1,11 @@
+# WSL2 testing override — use as a compose override:
+#   docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
+#
+# See examples/lan/docker-compose.wsl.yml for full WSL2 notes.
+# This file inherits the same Gatus port remap and port 3000 AdGuard UI.
+
+services:
+  gatus:
+    network_mode: host
+    volumes:
+      - ./config/gatus/config.wsl.yaml:/config/config.yaml:ro

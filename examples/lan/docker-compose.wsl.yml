@@ -1,28 +1,34 @@
-# WSL2 testing notes
+# WSL2 testing notes — use as a compose override:
+#   docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
 #
-# The main compose uses network_mode: host. In Docker on WSL2 this means
-# the container shares the WSL2 distro's network namespace (eth0 at
-# 192.168.x.x), NOT the Windows host network.
+# Why this file exists
+# --------------------
+# WSL2 on Windows 11 uses "mirrored networking" — all ports in use on the
+# Windows host are also occupied inside WSL2. This creates conflicts for:
 #
-# Consequences when testing on WSL2:
+#   Port 80  (AdGuard web UI):
+#     AdGuardHome.yaml sets http.address: 0.0.0.0:3000 by default.
+#     If you see AdGuard crashing, check what is listening on port 3000.
 #
-#   Port 445 (SMB):
-#     Windows LanmanServer occupies port 445 on all interfaces including
-#     the WSL2 virtual adapter. \\<WSL-IP>\share fails from the same
-#     Windows machine. Test from a separate device on the LAN.
+#   Port 8080 (Gatus dashboard):
+#     This override remaps Gatus to port 8081 on the WSL host.
+#     Access the dashboard at http://<WSL-IP>:8081 when testing.
 #
-#   Avahi (mDNS):
-#     WSL2 uses a NAT network — mDNS multicast does not reach the actual
-#     LAN. Avahi will not be visible on other LAN devices during WSL2 dev.
-#     Works correctly on real hardware (NAS, Pi).
+#   Port 445 (Samba SMB):
+#     Windows LanmanServer occupies port 445. Samba will bind the port
+#     successfully inside the container (host mode) but Windows itself
+#     won't let connections through. Test from a separate device on the LAN.
 #
-#   WSDD2 (WS-Discovery):
-#     Same NAT issue — WSD discovery will not propagate to the LAN from
-#     WSL2. Works on real hardware.
+#   Avahi / WSDD2 (service discovery):
+#     WSL2 NAT prevents mDNS/WSD multicast from reaching the real LAN.
+#     Discovery works correctly on real hardware.
 #
-# There is no port-mapping override for host mode. Run directly:
-#   docker compose up -d
-#
-# To get the WSL2 IP for smbclient testing inside the container:
+# To get the WSL2 IP for testing:
 #   ip -4 addr show eth0
-#   docker exec samba smbclient -L //127.0.0.1 -N
+#   smbclient -L //127.0.0.1 -N   (from inside WSL)
+
+services:
+  gatus:
+    network_mode: host
+    volumes:
+      - ./config/gatus/config.wsl.yaml:/config/config.yaml:ro
