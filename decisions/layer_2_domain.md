@@ -17,18 +17,16 @@ Layer 2 is a strict superset of Layers 0 and 1.
 
 | Capability | Discussion | Status |
 |------------|------------|--------|
-| dynDNS | — | 🔍 Not yet started |
-| Reverse proxy | — | 🔍 Not yet started |
-| Sablier (on-demand containers) | — | 🔍 Not yet started |
+| dynDNS | [ddns/](layer_2_domain/ddns/README.md) | ✅ Done |
+| Reverse proxy | [reverse-proxy/](layer_2_domain/reverse-proxy/README.md) | ✅ Done |
+| Sablier (on-demand containers) | [sablier/](layer_2_domain/sablier/README.md) | ✅ Done |
 
 ## Open Decisions
 
-1. Reverse proxy: Caddy vs Traefik vs SWAG (nginx)
-   - Caddy: simplest config, automatic TLS, good Sablier support
-   - Traefik: label-driven, more dynamic but more complex
-2. dynDNS provider: Cloudflare (free, API-driven) vs others
-3. Sablier: confirm compatibility with chosen reverse proxy
-4. No-LAN-leakage implementation: firewall rules vs proxy-only port exposure
+1. ~~Reverse proxy~~ — resolved: Caddy (custom build with cloudflare DNS + sablier plugins)
+2. ~~dynDNS provider~~ — resolved: `timothyjmiller/cloudflare-ddns` (1.2 MB, Cloudflare-only)
+3. ~~Sablier compatibility~~ — resolved: Caddy sablier plugin confirmed loaded
+4. No-LAN-leakage: implemented via router firewall rules (only TCP 80, 443, UDP 51820 open to internet)
 
 ## Out of Scope at Layer 2
 
