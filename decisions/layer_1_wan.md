@@ -17,14 +17,14 @@ Layer 1 is a strict superset of Layer 0. All Layer 0 services remain unchanged.
 
 | Capability | Discussion | Status |
 |------------|------------|--------|
-| VPN (WireGuard) | — | 🔍 Not yet started |
+| VPN (WireGuard) | [vpn/](layer_1_wan/vpn/README.md) | ✅ Done |
 
 ## Open Decisions
 
-1. WireGuard image: `linuxserver/wireguard` vs `wg-easy/wg-easy` (web UI) vs plain `wireguard-go`
-2. Key management: manual config vs web UI vs QR codes for mobile devices
-3. Split-horizon DNS: confirm AdGuard Home rewrite serves VPN subnet without extra config
-4. Firewall rules: restrict VPN peer access to specific services or full LAN?
+1. ~~WireGuard image~~ — resolved: `linuxserver/wireguard` (file config, ARM64, no web UI)
+2. ~~Key management~~ — resolved: auto-generated on first start, stored as files in `data/wireguard/`
+3. ~~Split-horizon DNS~~ — resolved: set `PEERDNS` to server LAN IP; AdGuard Home serves VPN peers with no extra config
+4. Firewall rules: restrict VPN peer access to specific services or full LAN? — deferred; default is full LAN access (appropriate for trusted household devices)
 
 ## Out of Scope at Layer 1
 
