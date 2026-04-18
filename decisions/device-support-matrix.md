@@ -1,5 +1,73 @@
 # HomeLab - Device Support Matrix
 
+This document defines the minimum set of devices that HomeLab must support and their expected network behaviors across layers.
+
+This is a general guideline. Individual services track their own compatibility separately; this file establishes the baseline requirements for the architecture as a whole.
+
+---
+
+## Must-Support Devices
+
+| Device | OS | Network access | Notes |
+|--------|----|--------------|----|
+| Steam Deck | Linux (SteamOS) | LAN + WAN | Gaming primary use case; must not be bottlenecked by home-server latency when gaming |
+| Android Phone | Android | LAN + WAN | Personal productivity, messaging, media consumption |
+| iPhone | iOS | LAN + WAN | Personal productivity, messaging, media consumption |
+| Windows Laptop | Windows | LAN + WAN | Productivity, file sharing, document editing |
+| Linux Laptop | Linux | LAN + WAN | Development, testing, CLI access |
+| Dual Windows/Linux Desktop | Windows or Linux (dual boot) | LAN only | Primary workstation, high-performance use |
+| Smart TV | Android or WebOS | LAN only | Media playback, dashboard display |
+
+---
+
+## Connectivity by Layer
+
+### Layer 0 — LAN
+- Direct connection to the home server on the same network
+- Services accessed by internal IP or local DNS name (e.g., `homelab.lan`)
+- No internet exposure; LAN is trusted
+- Expected latency: < 10 ms WiFi, < 2 ms wired
+
+### Layer 1 — WAN (VPN)
+- WireGuard VPN gives trusted devices access from outside the home
+- VPN peers connect to the server's LAN; services behave identically to Layer 0
+- Split-horizon DNS: AdGuard Home resolves domain names to internal IP for LAN/VPN clients
+- Security hardened at the VPN endpoint
+
+### Layer 2 — Domain
+- Services reachable from the internet via a public domain name
+- Reverse proxy handles TLS and routing; direct IP:port access is locked down
+- Sablier provides on-demand container startup (important for gaming workloads)
+- DNS: public domain resolves to public IP from WAN; internal IP on LAN/VPN
+
+### Layer 3 — Services
+- User-chosen services added on top of the Layer 0–2 infrastructure
+- Each device's compatibility is re-evaluated per service
+
+---
+
+## LAN-only devices
+
+- **Dual Windows/Linux Desktop** — high-performance workstation; remote access not required
+- **Smart TV** — streaming and dashboard only; remote access not meaningful
+
+---
+
+## Key Constraints
+
+1. **No forced VPN** — devices should not be required to use a VPN just to access a basic service
+2. **Same domain everywhere** — minimize device configuration; identical names on LAN and WAN (split-horizon DNS)
+3. **Gaming-friendly** — latency-sensitive workloads (Steam Deck, online multiplayer) must not be impacted by home-server overhead
+4. **Mixed OS support** — all services assume heterogeneous device OSes; no OS-specific hacks unless unavoidable
+5. **ARM64 required** — all images must support ARM64 (Raspberry Pi target)
+
+---
+
+## Service Compatibility
+
+Each service's decision folder explicitly states which devices it supports and under what network conditions. This matrix is the baseline; per-service decisions may be more restrictive.
+
+
 This document defines the minimum set of devices that HomeLab must support and their expected network behaviors on both LAN and WAN.
 
 This is a general guideline. Individual services will track their own compatibility separately; this file establishes the baseline requirements for the architecture as a whole.

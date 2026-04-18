@@ -1,41 +1,22 @@
 # Database — Decision Index
 
-## Role
-
-Provide a shared PostgreSQL instance for services that require a relational database:
-1. **Shared instance** — multiple databases, one per service, on a single Postgres process
-2. **pgvector extension** — enables vector similarity search for AI/ML workloads without a separate vector DB
-3. **LAN-internal only** — no published ports to the host; only services on the same Docker network connect
-
-Not all Layer 0 services need a database. Uptime Kuma uses SQLite. This instance is for services that explicitly require PostgreSQL (e.g., Gitea, Nextcloud, Authentik at higher layers).
-
----
-
 ## Status
 
-✅ **Verified** — `pgvector/pgvector:pg17` tested and passing. See [testing.md](testing.md) for results.
+⬛ **Out of scope for Layer 0.**
 
-**Selected image:** `pgvector/pgvector:pg17` (Docker Hub)
-**Digest:** `sha256:494dff7e67e7bc2c826b94c331364978d145ebb86fd338154138b084223b7f67`
+No Layer 0 service (Samba, AdGuard Home, Uptime Kuma) requires a relational database. PostgreSQL is introduced at Layer 3 when a specific service that needs it is being deployed.
 
----
-
-## Sections
-
-| File | Contents |
-|------|----------|
-| [candidates.md](candidates.md) | Image candidates, verification status |
-| [networking.md](networking.md) | Docker networking, internal-only access |
-| [configuration.md](configuration.md) | Init scripts, user/database creation, env vars |
-| [testing.md](testing.md) | Verification checklist and results — gate for finalising status |
-| [horizon.md](horizon.md) | Out-of-scope ideas: connection pooling, backups, HA |
+See [decisions/layer_3_services.md](../../layer_3_services.md) for the database decision context.
 
 ---
 
-## Constraints
+## When this folder becomes active
 
-- PostgreSQL 17 (current stable)
-- pgvector pre-installed (no separate extension management needed)
-- ARM64 image required (Raspberry Pi target)
-- No published ports — internal Docker network only
-- Credentials via environment variables / `.env`
+When the first Layer 3 service requiring PostgreSQL is being evaluated, this folder will be completed with:
+- Image selection (`postgres:17` vs `pgvector/pgvector:pg17` — decided based on confirmed service requirements)
+- Networking (internal bridge, no published ports)
+- Init scripts for per-service databases
+- Testing checklist
+
+The testing already performed (`pgvector/pgvector:pg17` verified, digest recorded) is preserved in [testing.md](testing.md) as a reference.
+

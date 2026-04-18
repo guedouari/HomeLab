@@ -1,116 +1,163 @@
 # Copilot Instructions — HomeLab
 
-This is a **documentation and Docker Compose configuration** repository. There is no application code, no build system, and no test suite. All work is Markdown documents and Compose files.
+This is a **documentation and Docker Compose configuration** repository. There is no application code, no build system, and no test suite. All work is Markdown documents, Compose files, and service config files.
 
 ---
 
 ## Repository Layout
 
 ```
-decisions/              # Per-capability decision records (research + rationale)
-  platform-choice.md   # Docker + Compose platform decision; image sourcing rules
-  layer_0_lan.md       # Index of all Layer 0 capabilities and their status
-  device-support-matrix.md
+decisions/                        # Per-capability decision records
+  device-support-matrix.md        # Baseline device and connectivity requirements
+  layer_0_lan.md                  # Layer 0 index — capabilities and status
+  layer_1_wan.md                  # Layer 1 index (stub — not yet started)
+  layer_2_domain.md               # Layer 2 index (stub — not yet started)
+  layer_3_services.md             # Layer 3 index (stub — not yet started)
   layer_0_lan/
-    dns.md             # DNS filtering — candidates, analysis, status
-    file-sharing.md    # File sharing — candidates, analysis, status
-    monitoring.md      # Monitoring — candidates, analysis, status
-    database.md        # Database server — candidates, analysis, status
-    prerequisites.md   # Assumptions before any service is deployed
+    prerequisites.md
+    file-sharing/                 # One folder per capability
+    dns/
+    monitoring/
+    database/                     # Out of scope for Layer 0; moved to Layer 3
 docs/
-  strategy.md          # Cross-cutting principles (image policy, DB strategy, etc.)
-  dev-setup-windows.md # WSL + Docker setup guide
+  strategy.md                     # Cross-cutting principles
+  dev-setup-windows.md            # WSL + Docker developer setup guide
 examples/
-  lan/                 # Working Layer 0 reference implementation
+  lan/                            # Working Layer 0 reference implementation
     docker-compose.yml
-    docker-compose.wsl.yml   # Port override for WSL2 testing
+    docker-compose.wsl.yml        # WSL2 limitations documentation (not a service override)
     .env.example
-    README.md
-plan.md                # High-level layer model and open decisions
-README.md              # Project vision and hardware targets
+    config/                       # Pre-baked service config files (mounted read-only)
+      adguardhome/AdGuardHome.yaml
+      gatus/config.yaml
+    data/                         # Runtime data (excluded from git)
+README.md
 ```
 
 ---
 
-## Layer Model (the big picture)
+## Layer Model
 
-The project builds in strict layers. **Never add Layer N+1 content until Layer N is working and verified.**
+The project builds in **strict layers**. Never add Layer N+1 content until Layer N is working and verified.
 
-| Layer | Scope | Status |
-|-------|-------|--------|
-| **0 — LAN** | DNS filtering, file sharing, monitoring, shared DB | Current focus |
-| **1 — WAN** | VPN, private domain, reverse proxy + TLS, on-demand startup | Depends on Layer 0 |
-| **2 — Services** | File sync, password manager, media, photo backup | Depends on Layer 1 |
-| **3 — Extended** | Local LLM, GPU workloads | Depends on Layer 2 |
+| Layer | Name | Scope |
+|-------|------|-------|
+| **0** | LAN | Isolated local network — file sharing, DNS filtering, lightweight monitoring. No internet exposure. Light security. |
+| **1** | WAN | VPN (WireGuard) — secure remote access to the home LAN. Hardened security. Split-horizon DNS. |
+| **2** | Domain | Public domain name — dynDNS, reverse proxy, Sablier (on-demand containers), TLS. No direct IP access; everything routes through the proxy. |
+| **3** | Services | User-chosen self-hosted services. Each evaluated independently. Database introduced here when a service needs it. |
+
+Each layer is a **strict superset** of the previous.
 
 ---
 
-## How Decision Files Work
+## Project Principles
 
-Every capability has a decision **folder** in `decisions/layer_0_lan/<capability>/` with these files:
+These principles are applied in order when making any decision. When principles conflict, the earlier one wins.
+
+### 1. Lighter is better — fewer containers
+
+Prefer an image that bundles multiple needed features over running multiple separate containers. Prefer smaller images and lower RAM footprint. If a feature requires adding a sidecar container, that is a strike against the solution.
+
+### 2. File config over wizard / UI config
+
+Prefer services where the full configuration lives in a version-controlled file (YAML, TOML, INI, env vars). A service that can only be configured through a browser wizard or a web UI is harder to reproduce and harder to automate.
+
+- Pre-baking a config file that skips a first-run wizard is acceptable — the result is still reproducible.
+- A service that **requires** a browser for every fresh deployment is deprioritised.
+
+### 3. Evaluate before committing
+
+No service is added to the project until it has been:
+1. Confirmed to serve a real use case for this specific setup
+2. Verified as a working Docker image on the target architectures (actually pulled)
+3. Tested locally with sane defaults
+4. Documented in the decision folder with a passing `testing.md`
+
+Speculative additions go in `horizon.md` files, not in the stack.
+
+### 4. Image verification is mandatory
+
+Before referencing any Docker image anywhere in the project, confirm it exists by pulling it or checking the registry. **Do not document an image path that has not been tested.** linuxserver.io (`lscr.io`) does not provide images for every service — always verify.
+
+### 5. ARM64 required
+
+Every selected image must support ARM64 (Raspberry Pi target). Verify from the manifest, not from documentation alone.
+
+### 6. FOSS first
+
+All services must be free and open-source. The one exception is Valve/Steam: it is a first-class citizen in this project because the Steam Machine is a core hardware target and gaming performance is a first-order concern.
+
+---
+
+## How Decision Folders Work
+
+Every capability has a decision **folder** in `decisions/layer_X/<capability>/` with these files:
 
 | File | Contents |
 |------|----------|
-| `README.md` | Index: role, status, links to sub-files, constraints, **Horizon** |
-| `protocol.md` | Protocol/approach landscape and elimination |
-| `candidates.md` | Docker image candidates — **"Pulled & verified" column must be ✅ before selecting** |
+| `README.md` | Index: role, status (🔍 / ✅), links to sub-files, constraints |
+| `candidates.md` | Candidate comparison — "Pulled & verified" must be ✅ before selecting |
 | `networking.md` | Docker networking modes and trade-offs |
-| `configuration.md` | Config design: env vars, share layout, auth model, open questions |
+| `configuration.md` | Config design: files, env vars, auth model, open questions |
 | `testing.md` | Verification checklist and results — **the gate for finalising status** |
-| `horizon.md` | Out-of-scope ideas that came up during discussion — what the service offers in those contexts |
+| `horizon.md` | Out-of-scope ideas that surfaced during discussion |
 
-The **Horizon** file captures anything that came up but isn't current-scope — alternative features, future use cases, adjacent capabilities. Each entry explains what the service can actually do in that context, not just that it's deferred. Nothing is discarded; it goes to `horizon.md` instead.
-
-**`testing.md` is the gate.** Status stays 🔍 Until it contains passing results. A service is never "decided" based on documentation alone — it must be verified running locally first.
+**`testing.md` is the gate.** Status stays 🔍 until it contains passing results.
 
 When a service passes testing:
-- Mark the result in `testing.md`
-- Update `README.md` status from 🔍 to ✅
-- Update the capability row in `decisions/layer_0_lan.md`
-- Update `plan.md` Open Decisions if applicable
-- Only then is the service name allowed in `examples/`
+1. Mark results in `testing.md`
+2. Update `README.md` status → ✅
+3. Update the capability row in `decisions/layer_X_<name>.md`
+4. Add the service to `examples/` only then
 
 ---
 
 ## Critical Rules
 
-### Image verification is mandatory
-Before referencing any Docker image anywhere in the project, confirm it exists by pulling it or checking the registry directly. **Do not document an image path that has not been tested.** linuxserver.io (`lscr.io`) does not provide images for every service — always check.
+### No service name in high-level files until verified
 
-### No specific service or image in high-level files until confirmed working locally
-`plan.md`, `README.md`, `docs/strategy.md`, `decisions/platform-choice.md`, and `decisions/layer_0_lan.md` must not name specific tools or images for a capability until that service has been verified running locally. Use capability-level language ("DNS filtering", "file sharing") until then. Specific names belong only in the individual decision files and in `examples/`.
+`README.md`, `docs/strategy.md`, `decisions/layer_*.md` index files must not name specific tools or images for a capability until that service has been verified running locally. Use capability-level language ("DNS filtering", "file sharing") until then. Specific names belong only in the individual decision files and `examples/`.
 
-### PostgreSQL-first
-If a service supports PostgreSQL it uses the shared PostgreSQL instance — no exceptions without a documented, time-limited reason. SQLite is only acceptable when a service has no PostgreSQL support at all. MariaDB is never added as a second database engine. See `docs/strategy.md §6` and `decisions/layer_0_lan/database.md`.
+### Database: introduce when needed
 
-### linuxserver.io preferred, not guaranteed
-linuxserver images are the first choice. When no linuxserver image exists, use the official vendor image. Document which registry the image actually comes from. The `lscr.io` prefix must never be assumed — verify before documenting.
+Do not add PostgreSQL (or any database) until a specific Layer 3 service that needs it is being deployed. When added: single shared instance, one database + dedicated user per service. Choose `postgres:17` or `pgvector/pgvector:pg17` only when a confirmed service requires pgvector — not preemptively.
 
 ---
 
 ## Examples
 
-`examples/lan/` is the working reference implementation for Layer 0. It must be runnable as-is after following the README pre-flight steps.
+`examples/lan/` is the working reference implementation for Layer 0. It must be runnable after following the README pre-flight steps.
 
-- **`docker-compose.yml`** — production target (real Linux host)
-- **`docker-compose.wsl.yml`** — WSL2 port override; used with: `docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d`
-- **`.env.example`** — all variables required; copy to `.env` before running
-- Services configure entirely through environment variables — no bind-mounted config files unless the image requires it
+- `docker-compose.yml` — production target (real Linux host)
+- `docker-compose.wsl.yml` — WSL2 limitations documentation (not a service file; explains why some tests behave differently on WSL2)
+- `.env.example` — all variables with defaults; copy to `.env` before running
+- `config/` — pre-baked config files mounted read-only into containers (`/config/` or equivalent)
+- `data/` — runtime state, excluded from git, created manually before first run
 
-Data directories are excluded from git and must be created manually before first run:
+Services prefer file-based configuration over environment variables when the image supports it. Config files live in `examples/lan/config/<service>/` and are mounted read-only.
+
+Data directories to create before first run:
 ```bash
-mkdir -p data/media data/files data/backup data/postgres
+mkdir -p data/media data/files data/backup data/adguardhome data/gatus
 ```
 
 ---
 
-## WSL2 Development Setup
+## WSL2 Development Notes
 
-See `docs/dev-setup-windows.md` for the full guide. Key points relevant to this project:
+See `docs/dev-setup-windows.md` for the full guide. Key points:
 
-- Use a named, isolated distro (`wsl --import homelab-test ...`) — never the primary distro
-- Disable Windows PATH bleed: set `[interop] appendWindowsPath = false` in `/etc/wsl.conf`, then `wsl --terminate homelab-test`
-- Install corporate CA certs with `sudo update-ca-certificates` before running `apt` or `curl`
+- Use a named isolated distro (`wsl --import homelab-test ...`) — never the primary distro
+- Disable Windows PATH bleed: `[interop] appendWindowsPath = false` in `/etc/wsl.conf`, then `wsl --terminate homelab-test`
+- Activate corporate CA certs with `sudo update-ca-certificates` before `apt` or `curl`
+- WSL2 limitations that affect testing:
+  - `LanmanServer` on Windows intercepts port 445 on all interfaces → `net view \\<WSL-IP>` fails from same machine
+  - NTFS bind mounts (`/mnt/d/...`) cause I/O errors inside containers — use WSL-native ext4 paths (`~/`)
+  - WSL2 internal DNS stub binds `10.255.255.254:53` → binding `0.0.0.0:53` conflicts; bind to specific eth0 IP instead
+  - Avahi/wsdd2 multicast doesn't propagate through WSL2 NAT → discovery only works on real hardware
+
+These are testing environment constraints, not bugs in the services.
 
 ---
 
@@ -120,36 +167,18 @@ All service decisions must account for all three targets:
 
 | Target | Notes |
 |--------|-------|
-| Steam Machine / x86_64 PC | Full feature set; gaming performance must not be degraded by background services |
-| Raspberry Pi 4/5 (ARM64) | ARM64 image required for every service; Pi 4 may need lighter alternatives for transcoding |
+| Steam Machine / x86_64 PC | Full feature set; gaming performance must not be degraded by background services; Sablier at Layer 2 is critical |
+| Raspberry Pi 4/5 (ARM64) | ARM64 image required for every service; Pi 4 may need lighter alternatives for CPU-intensive tasks |
 | NAS (Synology / TrueNAS) | Docker-compatible; native NAS shares may coexist with containerised services |
 
 ---
 
 ## Session Continuity
 
-Discussions, decisions, and findings must be written to project files as they happen — not held only in the chat. When a session ends, anything that exists only in the conversation is lost.
+Decisions and findings must be written to project files as they happen — not held only in chat. When a session ends, anything that exists only in the conversation is lost.
 
-After each meaningful step (a decision reached, a service evaluated, a file changed, a problem diagnosed):
-- Record the outcome in the appropriate file (`decisions/`, `plan.md`, decision file Status section, etc.)
-- Do not defer writing until "the end" — write as you go
+After each meaningful step:
+- Record the outcome in the appropriate decision file
+- If a topic is discussed without a conclusion, note the open question in the relevant `Open Decisions` section
 
-If a topic is discussed but no conclusion is reached, note the open question explicitly in the relevant decision file's **Open Decisions** section so the next session can pick it up without re-reading the chat.
-
-### Saving a session snapshot
-
-Use `/share` at the end of a working session to export the full conversation to a Markdown file. Save the output under `docs/sessions/` in the repo so the discussion history is part of the project.
-
-Other useful commands:
-- `/rename` — give the session a meaningful name (e.g. `layer0-samba-evaluation`) before sharing
-- `/compact` — summarise conversation history to reduce context size while keeping key findings in scope
-- `/resume` — return to a previous named session to continue where it left off
-
----
-
-## Conventions
-
-- **Markdown only** — all project content is `.md` files plus Compose/env files
-- **Capability language in high-level files, specifics in decision files** — keep `plan.md` and the index free of tool names that haven't been verified
-- **`examples/lan/.gitignore`** excludes `.env` and `data/` — never commit secrets or data directories
-- **`decisions/device-support-matrix.md`** is the baseline for all compatibility claims — reference it when a service has OS or protocol constraints
+The checkpoint system in the session workspace (`~/.copilot/session-state/`) captures intermediate state across compactions. Use it alongside project files.

@@ -1,69 +1,120 @@
 # Monitoring — Configuration
 
-## First Run
+## Config File
 
-Uptime Kuma opens a registration page on first start — create an admin username and password. This is a one-time step in the browser.
+Gatus is entirely driven by a single YAML file mounted at `/config/config.yaml`. No database, no web wizard.
 
-Unlike AdGuard Home, there is no config-file bypass for the initial admin account. The account is stored in SQLite (`kuma.db`) which persists in the data volume.
+The config lives at `./config/gatus/config.yaml` relative to the compose file.
 
 ---
 
-## Storage
+## Example Config (Layer 0 stack)
+
+```yaml
+web:
+  port: 8080
+
+endpoints:
+  - name: AdGuard Home
+    url: http://\${SERVER_IP}:80
+    interval: 30s
+    conditions:
+      - '[STATUS] == 200'
+
+  - name: DNS (AdGuard)
+    url: '\${SERVER_IP}'        # just the IP — no scheme for DNS checks
+    dns:
+      query-name: google.com
+      query-type: A
+    interval: 30s
+    conditions:
+      - '[DNS_RCODE] == NOERROR'
+
+  - name: Samba (SMB port)
+    url: tcp://\${SERVER_IP}:445
+    interval: 30s
+    conditions:
+      - '[CONNECTED] == true'
+```
+
+Replace `\${SERVER_IP}` with the server's static LAN IP.
+
+> **WSL2 note:** use the WSL2 eth0 IP (e.g. `192.168.143.14`), not `127.0.0.1`.
+> AdGuard Home binds DNS to the specific eth0 IP on WSL2, not loopback.
+> On real hardware, `127.0.0.1` or `0.0.0.0` work fine.
+
+---
+
+## Check Types
+
+| Type | URL format | Example |
+|------|-----------|---------|
+| HTTP | `http://host:port/path` | `http://192.168.1.10:80` |
+| TCP | `tcp://host:port` | `tcp://192.168.1.10:445` |
+| DNS | Just the DNS server IP (no scheme) + `dns:` block | `url: 192.168.1.10` |
+| Ping/ICMP | `icmp://host` | `icmp://192.168.1.10` |
+
+---
+
+## Conditions
+
+| Placeholder | Resolves to |
+|-------------|------------|
+| `[STATUS]` | HTTP response code |
+| `[CONNECTED]` | `true` / `false` for TCP/ICMP |
+| `[DNS_RCODE]` | DNS response code (`NOERROR`, `NXDOMAIN`, etc.) |
+| `[BODY]` | Response body (supports JSONPath) |
+| `[RESPONSE_TIME]` | Duration in ms |
+
+---
+
+## Notifications (optional at Layer 0)
+
+Add an `alerting` block and reference the alert type per endpoint:
+
+```yaml
+alerting:
+  ntfy:
+    url: https://ntfy.sh
+    topic: homelab-alerts    # pick a unique private topic
+
+endpoints:
+  - name: AdGuard Home
+    url: http://192.168.1.10:80
+    interval: 30s
+    conditions:
+      - '[STATUS] == 200'
+    alerts:
+      - type: ntfy
+        failure-threshold: 3
+        send-on-resolved: true
+```
+
+---
+
+## Volumes
 
 | Host path | Container path | Purpose |
 |-----------|---------------|---------|
-| `./data/uptime-kuma` | `/app/data` | SQLite database, all monitors, history |
+| `./config/gatus/config.yaml` | `/config/config.yaml` | Full monitoring config |
+| `./data/gatus` | `/data` | History / SQLite (optional — mount to persist uptime history) |
 
-SQLite lives at `/app/data/kuma.db`. Backing up this file preserves all monitors, history, and settings.
-
----
-
-## Monitor Types
-
-Add monitors via the web UI at `http://<host-ip>:3001`. Common types for this stack:
-
-| Type | Use for |
-|------|---------|
-| HTTP(s) | AdGuard Home web UI, any HTTP service |
-| DNS | Verify AdGuard Home is resolving (query a known domain) |
-| TCP Port | Samba port 445, PostgreSQL port 5432 |
-| Docker Container | Monitor container status directly (via Docker socket) |
-| Ping | Basic host reachability |
-
----
-
-## Notifications
-
-Layer 0 recommendation: configure **ntfy.sh** (public, free, no self-hosting required):
-
-1. In Uptime Kuma → Settings → Notifications → Add Notification
-2. Type: `ntfy`
-3. ntfy Server URL: `https://ntfy.sh`
-4. Topic: choose a unique private topic name (e.g., `homelab-abc123`)
-5. Subscribe on mobile: ntfy app → add server → subscribe to same topic
-
-For Layer 1, run a self-hosted ntfy container and point Uptime Kuma there.
-
----
-
-## Docker Socket Access (optional)
-
-To enable "Docker Container" monitor type, mount the Docker socket:
-
-```yaml
-volumes:
-  - /var/run/docker.sock:/var/run/docker.sock:ro
-```
-
-This gives Uptime Kuma read access to container state. Included in the compose example with `:ro` (read-only).
+History is optional. If not mounted, Gatus starts fresh on restart but still checks services immediately.
 
 ---
 
 ## Environment Variables
 
-Uptime Kuma uses very few env vars for core config — most settings are in the SQLite database.
+Gatus supports `\${ENV_VAR}` substitution inside `config.yaml`. Useful to keep the server IP out of the committed config:
 
-| Variable | Purpose |
-|----------|---------|
-| `TZ` | Timezone for timestamps in the UI |
-| `UPTIME_KUMA_PORT` | Override web UI port (default 3001) — not needed |
+```yaml
+endpoints:
+  - name: AdGuard Home
+    url: http://\${SERVER_IP}:80
+```
+
+Pass via compose:
+```yaml
+environment:
+  - SERVER_IP=192.168.1.10
+```

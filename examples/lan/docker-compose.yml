@@ -93,69 +93,32 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------
-  # Uptime Kuma — service uptime monitoring and status dashboard
+  # Gatus — lightweight service health dashboard
   #
-  # Bridge networking with port 3001 — no multicast needed.
-  # extra_hosts allows monitoring host-networked services (Samba, AdGuard).
+  # 24 MB image (Go binary). No wizard, no database — config is a
+  # single YAML file mounted at ./config/gatus/config.yaml.
   #
-  # First run: opens a DB setup wizard in the browser (choose SQLite),
-  #   then creates an admin account. All stored in ./data/uptime-kuma.
+  # Edit config.yaml before first run:
+  #   - Replace ${SERVER_IP} references with your server's static LAN IP
+  #     (or set SERVER_IP in .env — it is substituted automatically)
   #
-  # Add monitors in the web UI:
-  #   HTTP  → http://<host-ip>        (AdGuard Home web UI)
-  #   TCP   → <host-ip>:445           (Samba)
-  #   DNS   → query google.com via <host-ip>:53 (AdGuard Home DNS)
+  # Monitor types in use: HTTP, DNS, TCP.
+  # Add more endpoints in config.yaml as new services are deployed.
   #
-  # Notifications: configure ntfy, Telegram, or email in Settings.
-  # Web UI: http://<host-ip>:3001
+  # Optional notifications: uncomment the alerting block in config.yaml
+  # and set a ntfy topic (or any of the 30+ supported providers).
+  #
+  # Web UI: http://<host-ip>:8080
   # -------------------------------------------------------------------
-  uptime-kuma:
-    image: louislam/uptime-kuma:2
-    container_name: uptime-kuma
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
     ports:
-      - "3001:3001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "8080:8080"
     environment:
       - TZ=${TZ}
+      - SERVER_IP=${SERVER_IP}
     volumes:
-      - ./data/uptime-kuma:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/gatus/config.yaml:/config/config.yaml:ro
+      - ./data/gatus:/data
     restart: unless-stopped
-
-  # -------------------------------------------------------------------
-  # PostgreSQL + pgvector — shared database instance
-  #
-  # Internal-only: no published ports. Only containers on homelab-net
-  #   can reach this. Connect using hostname "postgres" port 5432.
-  #
-  # pgvector pre-installed — enable in any database with:
-  #   CREATE EXTENSION IF NOT EXISTS vector;
-  #
-  # Per-service setup: add SQL init scripts to ./config/postgres/initdb.d/
-  #   They run in filename order on first start only (when data/ is empty).
-  #   Example:
-  #     CREATE USER myapp WITH PASSWORD 'secret';
-  #     CREATE DATABASE myapp OWNER myapp;
-  #   Note: send CREATE USER and CREATE DATABASE as separate statements
-  #   (not in a single transaction block).
-  #
-  # Credentials: set POSTGRES_USER and POSTGRES_PASSWORD in .env
-  # -------------------------------------------------------------------
-  postgres:
-    image: pgvector/pgvector:pg17
-    container_name: postgres
-    environment:
-      - TZ=${TZ}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-      - ./config/postgres/initdb.d:/docker-entrypoint-initdb.d:ro
-    networks:
-      - homelab-net
-    restart: unless-stopped
-
-networks:
-  homelab-net:
-    driver: bridge
