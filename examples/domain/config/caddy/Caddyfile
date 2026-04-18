@@ -1,0 +1,52 @@
+{
+  global {
+    email {$ACME_EMAIL}
+  }
+
+  *.{$DOMAIN}, {$DOMAIN} {
+    tls {
+      dns cloudflare {$CLOUDFLARE_API_TOKEN}
+    }
+
+    # AdGuard Home — DNS filtering web UI
+    @adguard host adguard.{$DOMAIN}
+    handle @adguard {
+      reverse_proxy localhost:3000
+    }
+
+    # Gatus — service health dashboard
+    @status host status.{$DOMAIN}
+    handle @status {
+      reverse_proxy localhost:8080
+    }
+
+    # --- Layer 3 services — add handles here as services are deployed ---
+    # On-demand (via Sablier):
+    #
+    # @nextcloud host nextcloud.{$DOMAIN}
+    # handle @nextcloud {
+    #   sablier {
+    #     group nextcloud
+    #     session_duration 2h
+    #     dynamic {
+    #       display_name "Nextcloud"
+    #       theme hacker-terminal
+    #       show_details true
+    #       refresh_frequency 5s
+    #     }
+    #   }
+    #   reverse_proxy localhost:8080
+    # }
+    #
+    # Always-on (no Sablier):
+    #
+    # @myservice host myservice.{$DOMAIN}
+    # handle @myservice {
+    #   reverse_proxy localhost:PORT
+    # }
+
+    handle {
+      respond "Not found" 404
+    }
+  }
+}

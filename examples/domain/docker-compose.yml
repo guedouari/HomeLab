@@ -1,0 +1,162 @@
+services:
+
+  # -------------------------------------------------------------------
+  # Samba — LAN file sharing (SMB/CIFS)
+  # (inherited from Layer 0 — see examples/lan/ for documentation)
+  # -------------------------------------------------------------------
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    network_mode: host
+    cap_add:
+      - CAP_NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - ACCOUNT_homelab=${SAMBA_PASSWORD:-homelab}
+      - SAMBA_CONF_MAP_TO_GUEST=Bad User
+      - AVAHI_NAME=HomeLab
+      - SAMBA_CONF_WORKGROUP=WORKGROUP
+      - SAMBA_CONF_SERVER_STRING=HomeLab
+      - "SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+    volumes:
+      - ./data/media:/shares/media
+      - ./data/files:/shares/files
+      - ./data/backup:/shares/backup
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS filtering (inherited from Layer 0)
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/adguardhome:/opt/adguardhome/conf
+      - ./data/adguardhome:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Gatus — health dashboard (inherited from Layer 0)
+  # -------------------------------------------------------------------
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - SERVER_IP=${SERVER_IP}
+    volumes:
+      - ./config/gatus/config.yaml:/config/config.yaml:ro
+      - ./data/gatus:/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # WireGuard — VPN (inherited from Layer 1)
+  # -------------------------------------------------------------------
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: wireguard
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - TZ=${TZ}
+      - SERVERURL=${WIREGUARD_URL}
+      - SERVERPORT=${WIREGUARD_PORT:-51820}
+      - PEERS=${WIREGUARD_PEERS:-phone,laptop}
+      - PEERDNS=${SERVER_IP}
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=${WIREGUARD_ALLOWEDIPS:-0.0.0.0/0}
+      - LOG_CONFS=true
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./data/wireguard:/config
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Cloudflare dynDNS — Layer 2
+  #
+  # Keeps your Cloudflare DNS A record pointing at your current public
+  # IP. Checks every 5 minutes. Only calls the API when the IP changes.
+  #
+  # Config: ./config/cloudflare-ddns/cloudflare.json
+  #   Fill in your API token and Zone ID before starting.
+  #   Do NOT commit cloudflare.json — it contains your API token.
+  #   Only cloudflare.json.example is tracked in git.
+  # -------------------------------------------------------------------
+  cloudflare-ddns:
+    image: timothyjmiller/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/cloudflare-ddns/cloudflare.json:/config/cloudflare.json:ro
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Sablier — on-demand container lifecycle manager — Layer 2
+  #
+  # Starts idle Layer 3 services on first request, stops them after
+  # a configurable idle timeout. Needs Docker socket access.
+  #
+  # Services managed by Sablier must use restart: "no" — otherwise
+  # Docker will restart them immediately after Sablier stops them.
+  #
+  # The Caddy sablier plugin contacts this container at localhost:10000.
+  # Add sablier{} blocks in the Caddyfile for on-demand services.
+  # -------------------------------------------------------------------
+  sablier:
+    image: acouvreur/sablier:latest
+    container_name: sablier
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - SABLIER_PROVIDER_NAME=docker
+      - SABLIER_SERVER_PORT=10000
+      - SABLIER_SESSIONS_DEFAULT_DURATION=1m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/sablier:/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Caddy — reverse proxy + TLS — Layer 2
+  #
+  # Custom build: caddy:alpine + cloudflare DNS plugin + sablier plugin.
+  # Build once before first start:
+  #   docker build -f Dockerfile.caddy -t homelab-caddy .
+  #
+  # Config: ./config/caddy/Caddyfile
+  #   Set DOMAIN, ACME_EMAIL, CLOUDFLARE_API_TOKEN in .env.
+  #   Caddy auto-obtains a wildcard cert for *.${DOMAIN} via DNS-01.
+  #
+  # Ports: 80 (HTTP→HTTPS redirect) and 443 (HTTPS).
+  #   Both must be forwarded on your router to this server's LAN IP.
+  #
+  # TLS certs: stored in ./data/caddy/ — back this up.
+  #   Rate limit: 5 cert requests per domain per week (Let's Encrypt).
+  # -------------------------------------------------------------------
+  caddy:
+    image: homelab-caddy
+    container_name: caddy
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - DOMAIN=${DOMAIN}
+      - ACME_EMAIL=${ACME_EMAIL}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    restart: unless-stopped
