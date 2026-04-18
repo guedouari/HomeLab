@@ -1,0 +1,87 @@
+# AdGuard Home configuration — pre-baked to skip the setup wizard.
+#
+# Edit before first run:
+#   - Change the admin password hash (generate with: htpasswd -bnBC 10 "" <password> | tr -d ':\n')
+#   - Set the server's static LAN IP in dns.bind_hosts
+#   - Optionally add local DNS rewrites in filtering.rewrites
+#
+# Default credentials: admin / homelab
+#   The hash below corresponds to "homelab" — replace before exposing on any network.
+
+http:
+  address: 0.0.0.0:80
+  session_ttl: 720h
+
+users:
+  - name: admin
+    # bcrypt hash of "homelab" — replace with your own password hash
+    password: $2a$10$Tn9D2AeOFS3W8mkVs1IWtevhxeSw3Q4XW6v.a2AxmC.V07eJkqyW6
+
+auth_attempts: 5
+block_auth_min: 15
+language: ""
+theme: auto
+
+dns:
+  # On real hardware use 0.0.0.0 to listen on all interfaces.
+  # On WSL2 use the specific eth0 IP — WSL2 occupies 10.255.255.254:53.
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+
+  upstream_dns:
+    - https://dns.cloudflare.com/dns-query
+    - https://dns10.quad9.net/dns-query
+  bootstrap_dns:
+    - 1.1.1.1
+    - 9.9.9.9
+    - 2620:fe::10
+    - 2620:fe::fe:10
+  fallback_dns: []
+  upstream_mode: load_balance
+
+  cache_enabled: true
+  cache_size: 4194304
+  refuse_any: true
+  ratelimit: 20
+
+  # Hosts that should never be resolved (privacy)
+  blocked_hosts:
+    - version.bind
+    - id.server
+    - hostname.bind
+
+filtering:
+  enabled: true
+  update_interval: 24h
+  # Local DNS rewrites — add your server's hostname here.
+  # Use homelab.lan (not .local — .local conflicts with mDNS).
+  rewrites:
+    - domain: homelab.lan
+      answer: 192.168.1.10   # replace with your server's static LAN IP
+    - domain: "*.homelab.lan"
+      answer: 192.168.1.10
+
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt
+    name: OISD Blocklist Small
+    id: 2
+
+log:
+  enabled: true
+  file: ""
+  max_backups: 0
+  max_size: 100
+  max_age: 3
+  compress: false
+  local_time: false
+  verbose: false
+
+statistics:
+  enabled: true
+  interval: 24h

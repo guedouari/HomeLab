@@ -16,13 +16,11 @@ Layer 0 covers the LAN-only baseline defined in [device-support-matrix.md](devic
 | Capability | Discussion | Status |
 |------------|------------|--------|
 | Prerequisites | [layer_0_lan/prerequisites.md](layer_0_lan/prerequisites.md) | Assumptions defined |
-| DNS filtering | [layer_0_lan/dns.md](layer_0_lan/dns.md) | 🔍 Under evaluation |
+| DNS filtering | [layer_0_lan/dns/](layer_0_lan/dns/README.md) | ✅ Verified (`adguard/adguardhome`) |
 | File sharing | [layer_0_lan/file-sharing/](layer_0_lan/file-sharing/README.md) | ✅ Verified (`ghcr.io/servercontainers/samba`) |
-| Monitoring | [layer_0_lan/monitoring.md](layer_0_lan/monitoring.md) | 🔍 Under evaluation |
-| Database server | [layer_0_lan/database.md](layer_0_lan/database.md) | 🔍 Under evaluation |
+| Monitoring | [layer_0_lan/monitoring/](layer_0_lan/monitoring/README.md) | ✅ Verified (`louislam/uptime-kuma`) |
+| Database server | [layer_0_lan/database/](layer_0_lan/database/README.md) | ✅ Verified (`pgvector/pgvector:pg17`) |
 
 ## Open Decisions
 
-1. DNS filtering service: tool selection and networking mode (see [dns.md](layer_0_lan/dns.md))
-2. Monitoring service: tool selection and notification channel (see [monitoring.md](layer_0_lan/monitoring.md))
-3. Database server: tool selection and image verification (see [database.md](layer_0_lan/database.md))
+*(All Layer 0 capabilities verified. Remaining decisions are Layer 1+.)*

@@ -1,0 +1,11 @@
+-- Example init script — runs once on first start (when data/ is empty).
+-- Add one CREATE USER + CREATE DATABASE pair per service that needs Postgres.
+-- Use separate statements (not batched in a transaction block).
+--
+-- Uncomment and adapt as services are added:
+--
+-- CREATE USER gitea WITH PASSWORD 'changeme';
+-- CREATE DATABASE gitea OWNER gitea;
+--
+-- CREATE USER nextcloud WITH PASSWORD 'changeme';
+-- CREATE DATABASE nextcloud OWNER nextcloud;

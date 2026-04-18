@@ -61,3 +61,101 @@ services:
       - ./data/files:/shares/files
       - ./data/backup:/shares/backup
     restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS ad blocking + local DNS records
+  #
+  # network_mode: host — required for port 53 (UDP + TCP) without
+  #   conflicting with systemd-resolved. Serving port 53 in bridge
+  #   mode requires disabling systemd-resolved stub listener first.
+  #
+  # Setup wizard: skipped if AdGuardHome.yaml exists in the conf volume.
+  #   Pre-baked config lives at ./config/adguardhome/AdGuardHome.yaml.
+  #   Edit it before first run:
+  #     - Set dns.bind_hosts to your server's static LAN IP (or 0.0.0.0)
+  #     - Replace the admin password hash
+  #     - Update filtering.rewrites with your hostname → LAN IP
+  #
+  # After starting: set the server's IP as Primary DNS in router DHCP.
+  #   All devices on the LAN will use AdGuard Home automatically.
+  #
+  # Web UI: http://<host-ip>   (admin / see ADGUARD_PASSWORD in .env)
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/adguardhome:/opt/adguardhome/conf
+      - ./data/adguardhome:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Uptime Kuma — service uptime monitoring and status dashboard
+  #
+  # Bridge networking with port 3001 — no multicast needed.
+  # extra_hosts allows monitoring host-networked services (Samba, AdGuard).
+  #
+  # First run: opens a DB setup wizard in the browser (choose SQLite),
+  #   then creates an admin account. All stored in ./data/uptime-kuma.
+  #
+  # Add monitors in the web UI:
+  #   HTTP  → http://<host-ip>        (AdGuard Home web UI)
+  #   TCP   → <host-ip>:445           (Samba)
+  #   DNS   → query google.com via <host-ip>:53 (AdGuard Home DNS)
+  #
+  # Notifications: configure ntfy, Telegram, or email in Settings.
+  # Web UI: http://<host-ip>:3001
+  # -------------------------------------------------------------------
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./data/uptime-kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # PostgreSQL + pgvector — shared database instance
+  #
+  # Internal-only: no published ports. Only containers on homelab-net
+  #   can reach this. Connect using hostname "postgres" port 5432.
+  #
+  # pgvector pre-installed — enable in any database with:
+  #   CREATE EXTENSION IF NOT EXISTS vector;
+  #
+  # Per-service setup: add SQL init scripts to ./config/postgres/initdb.d/
+  #   They run in filename order on first start only (when data/ is empty).
+  #   Example:
+  #     CREATE USER myapp WITH PASSWORD 'secret';
+  #     CREATE DATABASE myapp OWNER myapp;
+  #   Note: send CREATE USER and CREATE DATABASE as separate statements
+  #   (not in a single transaction block).
+  #
+  # Credentials: set POSTGRES_USER and POSTGRES_PASSWORD in .env
+  # -------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: postgres
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./config/postgres/initdb.d:/docker-entrypoint-initdb.d:ro
+    networks:
+      - homelab-net
+    restart: unless-stopped
+
+networks:
+  homelab-net:
+    driver: bridge
