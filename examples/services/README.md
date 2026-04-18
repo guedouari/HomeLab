@@ -10,6 +10,7 @@ This is the full stack: Layers 0 + 1 + 2 + Nextcloud (files, contacts, calendar)
 | AdGuard Home | `adguard/adguardhome` | DNS filtering | 0 |
 | Gatus | `twinproduction/gatus` | Health dashboard | 0 |
 | WireGuard | `linuxserver/wireguard` | VPN | 1 |
+| **CrowdSec** | `crowdsecurity/crowdsec` | **IDS + community IP blocklist** | **1** |
 | Cloudflare dynDNS | `timothyjmiller/cloudflare-ddns` | DNS A record updater | 2 |
 | Sablier | `acouvreur/sablier` | On-demand containers | 2 |
 | Caddy | `homelab-caddy` | Reverse proxy + TLS | 2 |
@@ -20,13 +21,21 @@ This is the full stack: Layers 0 + 1 + 2 + Nextcloud (files, contacts, calendar)
 
 ## Pre-flight
 
-### 1. Build the custom Caddy image
+### 1. Apply host firewall baseline (required)
+
+```bash
+bash scripts/setup-firewall.sh
+```
+
+Sets iptables rules and prints bouncer install instructions for automatic IP banning (CrowdSec).
+
+### 2. Build the custom Caddy image
 
 ```bash
 docker build -f Dockerfile.caddy -t homelab-caddy .
 ```
 
-### 2. DNS setup (Cloudflare)
+### 3. DNS setup (Cloudflare)
 
 Add A records:
 - `homelab.example.com` → your public IP
@@ -37,7 +46,7 @@ Add CNAME records pointing to `homelab.example.com`:
 - `status` → `homelab.example.com`
 - `nextcloud` → `homelab.example.com`
 
-### 3. Router port-forwards
+### 4. Router port-forwards
 
 | Port | Protocol | To |
 |------|----------|---|
@@ -45,21 +54,21 @@ Add CNAME records pointing to `homelab.example.com`:
 | 443 | TCP | Caddy |
 | 51820 | UDP | WireGuard |
 
-### 4. Cloudflare dynDNS config
+### 5. Cloudflare dynDNS config
 
 ```bash
 cp config/cloudflare-ddns/cloudflare.json.example config/cloudflare-ddns/cloudflare.json
 # Edit: fill in your API token and Zone ID
 ```
 
-### 5. Create data directories
+### 6. Create data directories
 
 ```bash
 mkdir -p data/media data/files data/backup data/adguardhome data/gatus \
-         data/wireguard data/sablier data/caddy data/postgres data/redis
+         data/wireguard data/crowdsec data/sablier data/caddy data/postgres data/redis
 ```
 
-### 6. Copy layer configs
+### 7. Copy layer configs
 
 ```bash
 # Copy AdGuard and Gatus configs from Layer 0
@@ -67,7 +76,7 @@ cp -r ../lan/config/adguardhome ./config/
 cp -r ../lan/config/gatus ./config/
 ```
 
-### 7. Copy and edit `.env`
+### 8. Copy and edit `.env`
 
 ```bash
 cp .env.example .env

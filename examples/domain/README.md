@@ -10,13 +10,22 @@ This folder adds public domain access to the Layer 1 stack. Services are reachab
 | AdGuard Home | `adguard/adguardhome` | DNS filtering | 0 |
 | Gatus | `twinproduction/gatus` | Health dashboard | 0 |
 | WireGuard | `linuxserver/wireguard` | VPN | 1 |
+| **CrowdSec** | `crowdsecurity/crowdsec` | **IDS + community IP blocklist** | **1** |
 | **Cloudflare dynDNS** | `timothyjmiller/cloudflare-ddns` | DNS A record updater | **2** |
 | **Sablier** | `acouvreur/sablier` | On-demand container lifecycle | **2** |
 | **Caddy** | `homelab-caddy` (custom build) | Reverse proxy + TLS | **2** |
 
 ## Pre-flight
 
-### 1. Build the custom Caddy image (once)
+### 1. Apply host firewall baseline (required)
+
+```bash
+bash scripts/setup-firewall.sh
+```
+
+Sets iptables rules and prints bouncer install instructions for automatic IP banning (CrowdSec).
+
+### 2. Build the custom Caddy image (once)
 
 ```bash
 docker build -f Dockerfile.caddy -t homelab-caddy .
@@ -24,7 +33,7 @@ docker build -f Dockerfile.caddy -t homelab-caddy .
 
 This compiles Caddy with the Cloudflare DNS plugin and Sablier plugin. Takes ~2 minutes on first run, then cached.
 
-### 2. DNS setup in Cloudflare
+### 3. DNS setup in Cloudflare
 
 In your Cloudflare dashboard for your domain, create:
 - `homelab.example.com` → A record → your public IP (dynDNS will keep this updated)
@@ -34,7 +43,7 @@ In your Cloudflare dashboard for your domain, create:
 
 Or use a wildcard: `*.homelab.example.com` → CNAME → `homelab.example.com`.
 
-### 3. Router port-forwards
+### 4. Router port-forwards
 
 | Port | Protocol | Service |
 |------|----------|---------|
@@ -42,14 +51,14 @@ Or use a wildcard: `*.homelab.example.com` → CNAME → `homelab.example.com`.
 | 443  | TCP | Caddy (HTTPS) |
 | 51820 | UDP | WireGuard |
 
-### 4. Cloudflare API token
+### 5. Cloudflare API token
 
 ```bash
 cp config/cloudflare-ddns/cloudflare.json.example config/cloudflare-ddns/cloudflare.json
 # Edit: fill in your API token and Zone ID
 ```
 
-### 5. Copy config from Layer 1
+### 6. Copy config from Layer 1
 
 ```bash
 cp -r ../wan/config ./config  # copies adguardhome, gatus, wireguard configs
@@ -57,14 +66,14 @@ cp -r ../wan/config ./config  # copies adguardhome, gatus, wireguard configs
 # (caddy config is already in this folder)
 ```
 
-### 6. Create data directories
+### 7. Create data directories
 
 ```bash
 mkdir -p data/media data/files data/backup data/adguardhome data/gatus \
-         data/wireguard data/sablier data/caddy
+         data/wireguard data/crowdsec data/sablier data/caddy
 ```
 
-### 7. Copy and edit `.env`
+### 8. Copy and edit `.env`
 
 ```bash
 cp .env.example .env

@@ -10,14 +10,23 @@ This folder adds WireGuard VPN to the Layer 0 stack. It is a complete, self-cont
 | AdGuard Home | `adguard/adguardhome` | DNS filtering |
 | Gatus | `twinproduction/gatus` | Health dashboard |
 | **WireGuard** | `linuxserver/wireguard` | **VPN — Layer 1** |
+| **CrowdSec** | `crowdsecurity/crowdsec` | **IDS + community IP blocklist — Layer 1** |
 
 ## Pre-flight
 
-### 1. Router port-forward (required)
+### 1. Apply host firewall baseline (required before exposing WireGuard)
+
+```bash
+bash scripts/setup-firewall.sh
+```
+
+This sets iptables rules (accept LAN + WireGuard port, log+drop everything else) and prints optional bouncer install instructions for automatic IP banning.
+
+### 2. Router port-forward (required)
 
 Forward **UDP port 51820** (or `WIREGUARD_PORT`) on your router to the server's LAN IP. This is the only port that needs to be open to the internet at Layer 1.
 
-### 2. Copy config files from Layer 0
+### 3. Copy config files from Layer 0
 
 ```bash
 cp -r ../lan/config ./config
@@ -25,13 +34,13 @@ cp -r ../lan/config ./config
 
 WireGuard generates its own config on first start — no pre-baked config needed.
 
-### 3. Create data directories
+### 4. Create data directories
 
 ```bash
-mkdir -p data/media data/files data/backup data/adguardhome data/gatus data/wireguard
+mkdir -p data/media data/files data/backup data/adguardhome data/gatus data/wireguard data/crowdsec
 ```
 
-### 4. Copy and edit `.env`
+### 5. Copy and edit `.env`
 
 ```bash
 cp .env.example .env
@@ -41,7 +50,7 @@ cp .env.example .env
 #   WIREGUARD_PEERS → comma-separated names for your devices
 ```
 
-### 5. Start
+### 6. Start
 
 ```bash
 docker compose up -d
