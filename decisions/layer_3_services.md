@@ -31,8 +31,8 @@ Each candidate is evaluated on its own merits before being added. Immich is a se
 | Service | Category | Status |
 |---------|----------|--------|
 | PostgreSQL | Database (shared) | ✅ Done |
-| Redis | Cache + file locking | ✅ Done |
 | Nextcloud | Files, contacts, calendar | ✅ Done |
+| Redis | Cache + file locking | ⏸ Deferred — DB locking sufficient for now |
 | Immich | Photo management | 🔍 Not yet evaluated — defer until Nextcloud Photos is assessed |
 
 ## Open Decisions

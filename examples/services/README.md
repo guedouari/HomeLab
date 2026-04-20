@@ -15,7 +15,6 @@ This is the full stack: Layers 0 + 1 + 2 + Nextcloud (files, contacts, calendar)
 | Sablier | `acouvreur/sablier` | On-demand containers | 2 |
 | Caddy | `homelab-caddy` | Reverse proxy + TLS | 2 |
 | **PostgreSQL** | `postgres:17` | Shared database | **3** |
-| **Redis** | `redis:alpine` | Cache + file locking | **3** |
 | **Nextcloud** | `nextcloud:fpm-alpine` | Files, contacts, calendar | **3** |
 | **Nextcloud nginx** | `nginx:alpine` | HTTP frontend for FPM | **3** |
 
@@ -65,7 +64,7 @@ cp config/cloudflare-ddns/cloudflare.json.example config/cloudflare-ddns/cloudfl
 
 ```bash
 mkdir -p data/media data/files data/backup data/adguardhome data/gatus \
-         data/wireguard data/crowdsec data/sablier data/caddy data/postgres data/redis
+         data/wireguard data/crowdsec data/sablier data/caddy data/postgres
 ```
 
 ### 7. Copy layer configs

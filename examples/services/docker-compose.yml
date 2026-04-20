@@ -171,21 +171,6 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------
-  # Redis — caching and file locking — Layer 3
-  #
-  # Required by Nextcloud for transactional file locking.
-  # Without Redis, Nextcloud falls back to DB locking (much slower).
-  # -------------------------------------------------------------------
-  redis:
-    image: redis:alpine
-    container_name: redis
-    network_mode: host
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - ./data/redis:/data
-    restart: unless-stopped
-
-  # -------------------------------------------------------------------
   # Nextcloud FPM — PHP application server — Layer 3
   #
   # Auto-installs on first start via env vars — no web wizard needed.
@@ -210,8 +195,6 @@ services:
       - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
       - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
       - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.${DOMAIN} localhost ${SERVER_IP}
-      - REDIS_HOST=localhost
-      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD}
       - PHP_UPLOAD_LIMIT=512M
       - PHP_MEMORY_LIMIT=512M
       - OVERWRITEPROTOCOL=https
@@ -220,7 +203,6 @@ services:
       - nextcloud-data:/var/www/html
     depends_on:
       - postgres
-      - redis
     restart: unless-stopped
 
   # -------------------------------------------------------------------
