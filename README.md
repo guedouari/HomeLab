@@ -10,64 +10,57 @@ HomeLab turns a small home server into a private, always-available infrastructur
 
 - **Zero-friction LAN life** — DNS filtering, local DNS, and file sharing work the moment the stack boots.
 - **Data sovereignty** — your files, calendars, contacts, and media stay on hardware you own.
-- **On-demand services** — resource-hungry services (media server, game library, etc.) start only when needed, freeing the host for gaming or other tasks.
-- **Unified access** — the same domain names and URLs work whether you're on the home network or connecting remotely over VPN.
-- **Network segregation** — internal-only services (file sharing, DNS filtering) are never exposed to the public internet.
+- **On-demand services** — resource-hungry services start only when needed, freeing the host for gaming or other tasks.
+- **Unified access** — the same domain names work on the home network and over VPN.
+- **Network segregation** — internal-only services are never exposed to the public internet.
 
 ---
 
-## Core Pillars
+## Layer Model
 
-### 1. LAN Backbone
-| Capability | Role |
-|------------|------|
-| **DNS filtering** | Network-wide ad blocking and local DNS records |
-| **File sharing** | LAN file shares (NAS-like access from any OS) |
+The project is built in strict layers — each is a functional product on its own, and a strict superset of the previous.
 
-### 2. Data Privacy
-| Capability | Role |
-|------------|------|
-| **File sync suite** | Central hub — files, photos, calendars, contacts, notes, document editing |
-| **Encrypted messaging** | Self-hosted video calls and chat |
-| **Password manager** | Self-hosted, Bitwarden-compatible |
-
-### 3. Extensible Services (opt-in)
-| Capability | Role |
-|------------|------|
-| **Media server** | Movies, music, TV — replaces streaming subscriptions |
-| **Photo backup** | Self-hosted Google Photos alternative |
-| **Git hosting** | Self-hosted source code management |
-| **Dashboard** | Unified view of all running services |
-| **Uptime monitoring** | Internal health checks and phone alerts |
+| Layer | Name | Status | Scope |
+|-------|------|--------|-------|
+| **0** | LAN | ✅ Done | DNS filtering, file sharing, lightweight monitoring |
+| **1** | WAN | ✅ Done | WireGuard VPN + firewall (CrowdSec) + split-horizon DNS |
+| **2** | Domain | ✅ Done | Public domain, dynDNS, reverse proxy (Caddy), on-demand startup (Sablier) |
+| **3** | Services | ✅ Done | Nextcloud (files, contacts, calendar, Memories) + PostgreSQL |
 
 ---
 
-## Technology Stack
+## Project Structure
 
-| Layer | Status | Choice |
-|-------|--------|--------|
-| Containers | ✅ Final | **Docker + Compose** — portable, well-documented, broad hardware support |
-| Images | Strategy | **linuxserver.io preferred** — verified per-service before use; other registries where no linuxserver image exists |
-| Reverse proxy | 🔍 TBD | Under evaluation |
-| On-demand startup | 🔍 TBD | Under evaluation |
-| DNS filtering | 🔍 TBD | Under evaluation |
-| VPN | 🔍 TBD | Under evaluation |
-| Core apps | 🔍 TBD | Under evaluation |
+```
+HomeLab/
+├── backlog/            # Backlog.md task files — project board
+├── decisions/          # Per-capability decision records (ADRs)
+│   ├── layer_0_lan/
+│   ├── layer_1_wan/
+│   ├── layer_2_domain/
+│   └── layer_3_services/
+├── docs/               # Strategy and developer guides
+│   ├── strategy.md
+│   └── dev-setup-windows.md
+├── examples/           # Working reference Docker Compose configs
+│   ├── lan/            # Layer 0
+│   ├── wan/            # Layer 1
+│   ├── domain/         # Layer 2
+│   └── services/       # Layer 3
+└── generator/          # TypeScript config generator (in development)
+```
 
 ---
 
-## Key Design Decisions
+## Getting Started
 
-### On-Demand Services
-Non-essential services are started only when a request arrives and stopped after an idle window. This ensures a Steam Machine or resource-limited Pi is not fighting background services during gaming or intensive tasks.
+1. Clone the repo to your server.
+2. Pick your layer (`examples/lan`, `examples/wan`, `examples/domain`, or `examples/services`).
+3. Copy `.env.example` to `.env` and fill in your values.
+4. Run `docker compose up -d`.
+5. Follow the layer's `README.md` for pre-flight steps.
 
-### Single-Domain Access (LAN + WAN)
-Local DNS overrides resolve `*.home.yourdomain.com` to the internal server IP on the LAN. The same domains resolve to the public IP from outside. The reverse proxy terminates TLS and routes identically in both cases — no client configuration changes needed when leaving home. The VPN (WAN layer) extends this further by letting remote devices behave as if they are on the LAN.
-
-### Network Segregation
-- **LAN-only services** (file sharing, DNS filtering admin) bind only to the internal network interface and are never routed through the public-facing reverse proxy.
-- **External-reachable services** (Nextcloud, Vaultwarden, Jellyfin, etc.) are behind the reverse proxy with strict rate limiting and optional 2FA.
-- Docker networks enforce this at the container level — LAN services live on an isolated bridge with no internet routing.
+See [`docs/dev-setup-windows.md`](docs/dev-setup-windows.md) for the WSL2 development setup.
 
 ---
 
@@ -75,39 +68,15 @@ Local DNS overrides resolve `*.home.yourdomain.com` to the internal server IP on
 
 | Device | Notes |
 |--------|-------|
-| **Steam Machine / Mini PC / General x86_64** | Full feature set; Sablier on-demand critical to preserve gaming performance |
-| **Raspberry Pi 4/5** (ARM64) | Full feature set on Pi 5; Pi 4 may need lighter alternatives for transcoding |
-| **NAS (Synology / TrueNAS)** | Docker-compatible NAS can run the full stack; Samba may be replaced by native NAS shares |
+| **Steam Machine / Mini PC / x86_64** | Full feature set; Sablier critical for gaming performance |
+| **Raspberry Pi 4/5** (ARM64) | Full feature set; Pi 4 may need lighter alternatives for transcoding |
+| **NAS (Synology / TrueNAS)** | Docker-compatible NAS runs the full stack |
 
 ---
 
-## Project Structure (planned)
+## Roadmap
 
-```
-HomeLab/
-├── examples/
-│   ├── lan/            # Layer 0 — LAN stack
-│   ├── wan/            # Layer 1 — WAN + reverse proxy + VPN
-│   └── services/       # Layer 2 — opt-in user services
-├── decisions/          # Per-capability decision records
-├── docs/               # Guides and strategy
-└── README.md
-```
+All tasks are tracked in [`backlog/`](backlog/) using [Backlog.md](https://github.com/MrLesk/Backlog.md).
 
----
+The next milestone is the **TypeScript configuration generator** — a CLI tool that accepts hardware target + desired services and produces a ready-to-deploy Docker Compose + `.env` tailored to that setup. See [`generator/`](generator/).
 
-## Getting Started
-
-> Full setup instructions will be added as each phase of [plan.md](plan.md) is implemented.
-
-1. Clone the repo to your server.
-2. Copy `.env.example` to `.env` and fill in your credentials and network settings.
-3. Start the stack with `docker compose up -d`.
-4. Configure your router to use the server's IP as its DNS server.
-5. Access services by IP on the LAN until DNS is configured.
-
----
-
-## Status
-
-Early planning phase — see [plan.md](plan.md) for the detailed roadmap.

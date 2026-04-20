@@ -1,0 +1,11 @@
+# Generator
+generator/node_modules/
+generator/dist/
+generator/output/
+
+# Backlog.md web UI build artifacts (tasks are plain .md — committed)
+backlog/.cache/
+
+# OS
+.DS_Store
+Thumbs.db
