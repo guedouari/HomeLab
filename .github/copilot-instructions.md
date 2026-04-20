@@ -20,11 +20,12 @@ backlog/                          # Backlog.md — task board, docs, and decisio
   config.yml                      # Backlog.md project config (task prefix: BACK)
   tasks/                          # Active tasks (BACK-N - title.md)
   completed/                      # Done tasks
-  docs/                           # Developer guides and strategy
-    strategy.md                   # Cross-cutting principles
-    dev-setup-windows.md          # WSL2 + Docker developer setup guide
+  docs/                           # Product-level docs (Backlog.md scans here)
+    strategy.md                   # Cross-cutting principles (id: doc-1)
   decisions/                      # Formal ADRs (flat, 1 file per decision-N - title.md)
-  docs/research/                  # Per-capability research notes (nested, read-only reference)
+docs/                             # Developer docs (NOT scanned by Backlog.md)
+  dev-setup-windows.md            # WSL2 + Docker developer setup guide
+  research/                       # Per-capability research notes (nested, read-only reference)
 examples/                         # Working reference Docker Compose configs
   lan/                            # Layer 0 — LAN (✅ tested)
   wan/                            # Layer 1 — WAN + VPN (✅ tested)
@@ -90,7 +91,7 @@ All services must be FOSS-licensed. Exception: Valve/Steam is a first-class citi
 
 Formal architecture decisions live in `backlog/decisions/` as flat `decision-N - title.md` files with YAML frontmatter (`id`, `title`, `date`, `status`).
 
-Deep research notes (candidate comparisons, networking analysis, testing results) live in `backlog/docs/research/layer_X_*/` — they are reference material only, not task items.
+Deep research notes (candidate comparisons, networking analysis, testing results) live in `docs/research/layer_X_*/` — they are reference material only, not task items.
 
 **Current decisions (all Accepted):**
 - decision-1: Docker + Compose (platform)
@@ -156,7 +157,7 @@ Each `examples/` folder is a self-contained, runnable stack:
 
 ## WSL2 Development Notes
 
-See `backlog/docs/dev-setup-windows.md` for the full guide. Key constraints:
+See `docs/dev-setup-windows.md` for the full guide. Key constraints:
 - Port 445 owned by Windows `LanmanServer` — Samba binds inside container but Windows blocks it from outside
 - Port 53 owned by Windows DNS stub — AdGuard DNS conflicts; bind to specific eth0 IP instead
 - Port 8080 owned by `wslrelay.exe` — cannot be killed; use port 8082 for Gatus in WSL
