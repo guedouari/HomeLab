@@ -1,3 +1,8 @@
+---
+id: doc-2
+title: Windows Developer Setup — WSL + Docker
+---
+
 # Windows Developer Setup — Testing with WSL + Docker
 
 This guide walks through creating an **isolated WSL environment** on Windows for testing the HomeLab Docker Compose stack without affecting your main system.

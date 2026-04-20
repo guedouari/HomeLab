@@ -1,3 +1,8 @@
+---
+id: doc-1
+title: Project Strategy
+---
+
 # Project Strategy
 
 This document describes the guiding principles and strategic decisions that shape how HomeLab is built, maintained, and extended.
