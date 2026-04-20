@@ -12,48 +12,46 @@ Tasks are tracked with [Backlog.md](https://github.com/MrLesk/Backlog.md) in `ba
 ## Repository Layout
 
 ```
-backlog/                          # Backlog.md task files (markdown-native task board)
+src/                              # TypeScript generator (project root — primary focus)
+  index.ts                        # CLI entry point (Commander)
+  schema.ts                       # Zod input schema + GeneratorInput type
+  generate.ts                     # Orchestrator stub — layer generators go here
+backlog/                          # Backlog.md — task board, docs, and decision records
+  config.yml                      # Backlog.md project config (task prefix: BACK)
   tasks/                          # Active tasks (BACK-N - title.md)
   completed/                      # Done tasks
-  config.yml                      # Backlog.md project config
-decisions/                        # Per-capability decision records (ADRs)
-  device-support-matrix.md
-  platform-choice.md
-  layer_0_lan.md                  # Layer 0 index
-  layer_1_wan.md                  # Layer 1 index
-  layer_2_domain.md               # Layer 2 index
-  layer_3_services.md             # Layer 3 index
-  layer_0_lan/                    # One folder per capability
-    file-sharing/
-    dns/
-    monitoring/
-    database/
-  layer_1_wan/
-    vpn/
-    firewall/
-  layer_2_domain/
-    ddns/
-    reverse-proxy/
-    sablier/
-  layer_3_services/
-    nextcloud/
-    database/
-docs/
-  strategy.md                     # Cross-cutting principles
-  dev-setup-windows.md            # WSL2 + Docker developer setup guide
+  docs/                           # Developer guides and strategy
+    strategy.md                   # Cross-cutting principles
+    dev-setup-windows.md          # WSL2 + Docker developer setup guide
+  decisions/                      # Per-capability decision records (ADRs)
+    device-support-matrix.md
+    platform-choice.md
+    layer_0_lan.md                # Layer 0 index
+    layer_1_wan.md                # Layer 1 index
+    layer_2_domain.md             # Layer 2 index
+    layer_3_services.md           # Layer 3 index
+    layer_0_lan/                  # One folder per capability
+      file-sharing/
+      dns/
+      monitoring/
+      database/
+    layer_1_wan/
+      vpn/
+      firewall/
+    layer_2_domain/
+      ddns/
+      reverse-proxy/
+      sablier/
+    layer_3_services/
+      nextcloud/
+      database/
 examples/                         # Working reference Docker Compose configs
   lan/                            # Layer 0 — LAN (✅ tested)
   wan/                            # Layer 1 — WAN + VPN (✅ tested)
   domain/                         # Layer 2 — Domain + Caddy (✅ tested)
   services/                       # Layer 3 — Nextcloud + PostgreSQL (✅ tested)
-generator/                        # TypeScript CLI config generator
-  src/
-    index.ts                      # CLI entry point (Commander)
-    schema.ts                     # Zod input schema + GeneratorInput type
-    generate.ts                   # Orchestrator stub
-  package.json
-  tsconfig.json
-  README.md
+package.json                      # Generator dependencies
+tsconfig.json                     # TypeScript config (CommonJS, strict)
 README.md
 ```
 
@@ -125,18 +123,17 @@ Every capability has a decision **folder** in `decisions/layer_X/<capability>/`:
 
 ---
 
-## Generator (`generator/`)
+## Generator (`src/`)
 
-The generator is a TypeScript CLI tool that accepts user inputs and produces ready-to-deploy Docker Compose + `.env` configs. It is the **next major milestone** of the project.
+The generator is a TypeScript CLI at the **project root** (`src/`, `package.json`, `tsconfig.json`). It is the primary active development focus.
 
 Key files:
 - `src/schema.ts` — Zod schema for all generator inputs (`GeneratorInput` type)
 - `src/index.ts` — Commander CLI; validates input, calls `generate()`
-- `src/generate.ts` — Orchestrator; calls per-layer generators (layer generators are stubs)
+- `src/generate.ts` — Orchestrator; calls per-layer generators (stubs)
 
 Development:
 ```bash
-cd generator
 npm install
 npm run dev -- generate --help
 npm run typecheck
@@ -175,7 +172,7 @@ Each `examples/` folder is a self-contained, runnable stack:
 
 ## WSL2 Development Notes
 
-See `docs/dev-setup-windows.md` for the full guide. Key constraints:
+See `backlog/docs/dev-setup-windows.md` for the full guide. Key constraints:
 - Port 445 owned by Windows `LanmanServer` — Samba binds inside container but Windows blocks it from outside
 - Port 53 owned by Windows DNS stub — AdGuard DNS conflicts; bind to specific eth0 IP instead
 - Port 8080 owned by `wslrelay.exe` — cannot be killed; use port 8082 for Gatus in WSL

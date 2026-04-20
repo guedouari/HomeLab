@@ -33,22 +33,22 @@ The project is built in strict layers — each is a functional product on its ow
 
 ```
 HomeLab/
-├── backlog/            # Backlog.md task files — project board
-├── decisions/          # Per-capability decision records (ADRs)
-│   ├── layer_0_lan/
-│   ├── layer_1_wan/
-│   ├── layer_2_domain/
-│   └── layer_3_services/
-├── docs/               # Strategy and developer guides
-│   ├── strategy.md
-│   └── dev-setup-windows.md
+├── src/                # TypeScript generator (CLI tool)
+│   ├── index.ts        # CLI entry point
+│   ├── schema.ts       # Zod input schema
+│   └── generate.ts     # Orchestrator stub
+├── backlog/            # Backlog.md — task board, decisions, docs
+│   ├── tasks/          # Active tasks (BACK-N)
+│   ├── decisions/      # Per-capability decision records (ADRs)
+│   ├── docs/           # Strategy and developer guides
+│   └── config.yml      # Backlog.md project config
 ├── examples/           # Working reference Docker Compose configs
 │   ├── lan/            # Layer 0
 │   ├── wan/            # Layer 1
 │   ├── domain/         # Layer 2
 │   └── services/       # Layer 3
-└── generator/          # TypeScript config generator (in development)
-```
+├── package.json        # Generator dependencies (Node.js / TypeScript)
+└── tsconfig.json
 
 ---
 
@@ -60,7 +60,7 @@ HomeLab/
 4. Run `docker compose up -d`.
 5. Follow the layer's `README.md` for pre-flight steps.
 
-See [`docs/dev-setup-windows.md`](docs/dev-setup-windows.md) for the WSL2 development setup.
+See [`backlog/docs/dev-setup-windows.md`](backlog/docs/dev-setup-windows.md) for the WSL2 development setup.
 
 ---
 
@@ -78,5 +78,5 @@ See [`docs/dev-setup-windows.md`](docs/dev-setup-windows.md) for the WSL2 develo
 
 All tasks are tracked in [`backlog/`](backlog/) using [Backlog.md](https://github.com/MrLesk/Backlog.md).
 
-The next milestone is the **TypeScript configuration generator** — a CLI tool that accepts hardware target + desired services and produces a ready-to-deploy Docker Compose + `.env` tailored to that setup. See [`generator/`](generator/).
+The next milestone is the **TypeScript configuration generator** — a CLI tool that accepts hardware target + desired services and produces a ready-to-deploy Docker Compose + `.env` tailored to that setup. See [`src/`](src/) and [`package.json`](package.json).
 
