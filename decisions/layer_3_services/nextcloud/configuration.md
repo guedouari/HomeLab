@@ -12,86 +12,37 @@
 | `POSTGRES_DB` | `nextcloud` | Nextcloud database name |
 | `POSTGRES_USER` | `nextcloud_user` | Database user |
 | `POSTGRES_PASSWORD` | `...` | Database password |
-| `REDIS_HOST` | `localhost` | Redis host |
-| `REDIS_HOST_PASSWORD` | `...` | Redis password |
 | `PHP_UPLOAD_LIMIT` | `512M` | Max upload size |
 | `PHP_MEMORY_LIMIT` | `512M` | PHP memory limit |
 | `OVERWRITEPROTOCOL` | `https` | Force HTTPS in generated URLs (behind reverse proxy) |
 | `OVERWRITECLIURL` | `https://nextcloud.homelab.example.com` | CLI URL for cron jobs |
 
-## nginx config (`config/nextcloud-nginx/nginx.conf`)
+## Caddy config (`config/caddy/Caddyfile`)
 
-```nginx
-upstream php-handler {
-    server 127.0.0.1:9000;
-}
+Caddy serves as both the reverse proxy/TLS terminator and the Nextcloud FPM HTTP frontend. It mounts the `nextcloud-data` volume at `/var/www/html` to serve static assets directly.
 
-server {
-    listen 8081;
-    server_name _;
+```caddy
+@nextcloud host nextcloud.{$DOMAIN}
+handle @nextcloud {
+  root * /var/www/html
 
-    root /var/www/html;
-    index index.php index.html;
+  redir /.well-known/carddav /remote.php/dav 301
+  redir /.well-known/caldav  /remote.php/dav 301
 
-    client_max_body_size 512M;
-    client_body_timeout 300s;
+  php_fastcgi localhost:9000 {
+    env HTTPS on
+    env HTTP_HTTPS on
+  }
 
-    gzip on;
-    gzip_vary on;
-    gzip_comp_level 4;
-    gzip_types text/plain text/css text/javascript application/javascript
-               text/xml application/xml application/json;
-
-    location = /robots.txt { allow all; log_not_found off; access_log off; }
-
-    location ^~ /.well-known {
-        location = /.well-known/carddav { return 301 /remote.php/dav/; }
-        location = /.well-known/caldav  { return 301 /remote.php/dav/; }
-        return 301 /index.php$request_uri;
-    }
-
-    location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:$|/) {
-        return 404;
-    }
-
-    location ~ \.php(?:$|/) {
-        rewrite ^/(?!index|remote|public|cron)(\/\S+)?$ /index.php$uri last;
-        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-        set $path_info $fastcgi_path_info;
-        if (!-f $document_root$fastcgi_script_name) { return 404; }
-        fastcgi_param HTTPS on;
-        fastcgi_param modHeadersAvailable true;
-        fastcgi_param front_controller_active true;
-        fastcgi_pass php-handler;
-        fastcgi_intercept_errors on;
-        fastcgi_request_buffering off;
-        fastcgi_max_temp_file_size 0;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_param PATH_INFO $path_info;
-    }
-
-    location ~ \.(?:css|js|svg|gif|png|jpg|ico|wasm|tflite|map|ogg|flac)$ {
-        try_files $uri /index.php$request_uri;
-        expires 6M;
-        access_log off;
-    }
-
-    location ~ \.woff2?$ {
-        try_files $uri /index.php$request_uri;
-        expires 7d;
-        access_log off;
-    }
-
-    location /remote { return 301 /remote.php$request_uri; }
-
-    location / { try_files $uri $uri/ /index.php$request_uri; }
+  file_server
 }
 ```
 
+No Sablier — Nextcloud must always be running for CalDAV/CardDAV sync to work reliably.
+
 ## Shared volume
 
-`nextcloud:fpm-alpine` writes app files to `/var/www/html`. `nginx:alpine` reads from the same path (mounted read-only) to serve static assets directly. Both containers share a named Docker volume `nextcloud-data`.
+`nextcloud:fpm-alpine` writes app files to `/var/www/html`. Caddy reads from the same path (mounted read-only) to serve static assets directly. Both share a named Docker volume `nextcloud-data`.
 
 ## Cron (background jobs)
 
@@ -103,14 +54,3 @@ Nextcloud requires periodic background jobs (file indexing, notifications, etc.)
 ```
 
 Or use Nextcloud's built-in `webcron` feature (less reliable) — configure in Admin → Basic settings → Background jobs.
-
-## Caddy route (add to Caddyfile)
-
-```caddy
-@nextcloud host nextcloud.{$DOMAIN}
-handle @nextcloud {
-  reverse_proxy localhost:8081
-}
-```
-
-No Sablier — Nextcloud must always be running for CalDAV/CardDAV sync to work reliably.

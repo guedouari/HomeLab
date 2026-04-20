@@ -33,20 +33,17 @@ MySQL-compatible relational database.
 | Nextcloud support | ✅ officially recommended |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
-| Immich support | ❌ Immich requires PostgreSQL (pgvector extension) |
 
-### PostgreSQL (`pgvector/pgvector:pg17`)
+### PostgreSQL (`postgres:17`)
 
-Advanced open-source relational database with pgvector pre-installed.
+Advanced open-source relational database.
 
 | Property | Value |
 |----------|-------|
-| Verified image | `pgvector/pgvector:pg17` ✅ (Verified Publisher, Docker Hub) |
-| linuxserver image | ❌ does not exist (`lscr.io/linuxserver/postgresql` is fictional) |
+| Verified image | `postgres:17` ✅ (Docker Official Image) |
 | Nextcloud support | ✅ officially supported |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
-| Immich support | ✅ required (pgvector pre-installed in this image) |
 
 ---
 
@@ -54,16 +51,13 @@ Advanced open-source relational database with pgvector pre-installed.
 
 | Service | Layer | SQLite | MariaDB | PostgreSQL | Notes |
 |---------|-------|:------:|:-------:|:----------:|-------|
-| Uptime Kuma | 0 | ✅ built-in (only) | — | ❌ not yet supported | PostgreSQL backend is in development upstream; SQLite is the production option |
 | AdGuard Home | 0 | ✅ built-in | — | — | Uses its own storage; no external DB needed |
 | Samba | 0 | — | — | — | No database needed |
 | Nextcloud | 2 | ⚠️ not for production | ✅ recommended | ✅ supported | SQLite not suitable beyond testing |
 | Vaultwarden | 2 | ⚠️ default but migrate | ✅ | ✅ | SQLite is the default; migrate to PostgreSQL per project policy |
-| Jellyfin | 2 | ✅ built-in | — | — | No relational DB needed; uses its own internal store |
-| Immich | 2 | ❌ | ❌ | ✅ required | Needs pgvector extension |
 | Gitea | 2 | ⚠️ small installs but migrate | ✅ | ✅ | SQLite acceptable initially; migrate to PostgreSQL per project policy |
 
-**Key finding:** Immich requires PostgreSQL and cannot use MariaDB. Nextcloud works with both. Choosing MariaDB would force a second database container when Immich is added. Choosing PostgreSQL covers all services with a single instance.
+**Key finding:** Nextcloud and future Layer 3 services (Vaultwarden, Gitea) all support PostgreSQL. Choosing a single shared PostgreSQL instance eliminates per-service database sidecars and gives one backup target.
 
 ---
 
@@ -72,21 +66,18 @@ Advanced open-source relational database with pgvector pre-installed.
 **PostgreSQL is the single shared database server.**
 
 Reasons:
-- Only engine that covers all current and planned services (including Immich's pgvector requirement)
+- Only engine that covers all current and planned services
 - Nextcloud officially supports PostgreSQL — no degraded experience vs MariaDB
 - One engine to operate, back up, and understand
-- `pgvector/pgvector:pg17` is a Verified Publisher image with pgvector pre-installed — resolves the pgvector open decision immediately
-- No linuxserver image exists; `pgvector/pgvector:pg17` is the correct verified choice
+- `postgres:17` official image — Verified Publisher on Docker Hub, multi-arch (AMD64 + ARM64)
 - Per-service isolation via separate databases and users
 
 ### Instance model
 
 ```
 postgres (shared container)
-├── adguardhome_db / adguardhome_user   (if needed in future)
 ├── nextcloud_db   / nextcloud_user
 ├── vaultwarden_db / vaultwarden_user   (if moving off SQLite)
-├── immich_db      / immich_user
 └── gitea_db       / gitea_user         (if moving off SQLite)
 ```
 
@@ -114,6 +105,6 @@ Several Layer 2 services (notably Nextcloud) benefit significantly from a **cach
 
 ## Status
 
-**Decided: PostgreSQL (`pgvector/pgvector:pg17`) — single shared instance**
+**Decided: PostgreSQL (`postgres:17`) — single shared instance**
 
-`lscr.io/linuxserver/postgresql` does not exist. `pgvector/pgvector:pg17` is the verified replacement — Verified Publisher on Docker Hub, pgvector pre-installed, multi-arch (AMD64 + ARM64). The pgvector open decision is resolved by the image choice. Deployment details and backup strategy remain open until implementation.
+Official `postgres:17` from Docker Hub — Verified Publisher, multi-arch (AMD64 + ARM64). Plain PostgreSQL is sufficient; no extensions needed for current services.

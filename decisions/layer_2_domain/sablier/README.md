@@ -54,7 +54,6 @@ handle @myservice {
 | Gatus | Yes — monitoring should be always up | ❌ |
 | WireGuard | Yes — VPN must be always reachable | ❌ |
 | Nextcloud | On demand | ✅ |
-| Immich | On demand | ✅ |
 | Any Layer 3 service | On demand | ✅ |
 
 ## See also

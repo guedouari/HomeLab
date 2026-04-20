@@ -19,11 +19,24 @@
     reverse_proxy localhost:8080
   }
 
-  # Nextcloud — file sync, contacts, calendar
-  # No Sablier — Nextcloud must always run for CalDAV/CardDAV sync
+  # Nextcloud — file sync, contacts, calendar, Memories
+  # No Sablier — Nextcloud must always run for CalDAV/CardDAV sync.
+  # Caddy serves static assets and proxies PHP directly to FPM (no nginx).
   @nextcloud host nextcloud.{$DOMAIN}
   handle @nextcloud {
-    reverse_proxy localhost:8081
+    root * /var/www/html
+
+    # Well-known redirects for CalDAV / CardDAV clients
+    redir /.well-known/carddav /remote.php/dav 301
+    redir /.well-known/caldav  /remote.php/dav 301
+
+    # PHP-FPM backend
+    php_fastcgi localhost:9000 {
+      env HTTPS on
+      env HTTP_HTTPS on
+    }
+
+    file_server
   }
 
   # --- Add future Layer 3 services here ---

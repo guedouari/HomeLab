@@ -16,7 +16,6 @@ This is the full stack: Layers 0 + 1 + 2 + Nextcloud (files, contacts, calendar)
 | Caddy | `homelab-caddy` | Reverse proxy + TLS | 2 |
 | **PostgreSQL** | `postgres:17` | Shared database | **3** |
 | **Nextcloud** | `nextcloud:fpm-alpine` | Files, contacts, calendar | **3** |
-| **Nextcloud nginx** | `nginx:alpine` | HTTP frontend for FPM | **3** |
 
 ## Pre-flight
 

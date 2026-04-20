@@ -204,7 +204,7 @@ Targeting the Steam Machine covers the full range of x86_64 home servers: mini P
 ### NAS (Synology, TrueNAS, or generic)
 - Docker-compatible NAS devices run the full stack
 - Native NAS file-sharing (SMB/NFS) may replace or supplement the Samba container
-- Storage-heavy services (Jellyfin, Immich) are natural fits on this platform
+- Storage-heavy services (Jellyfin) are natural fits on this platform
 
 ### Raspberry Pi *(and ARM64 SBCs)*
 - ARM64 support is required for all included images

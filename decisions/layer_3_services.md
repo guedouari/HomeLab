@@ -19,28 +19,26 @@ The primary Layer 3 goal is to evaluate whether Nextcloud (and modules) can repl
 | Cloud service | Self-hosted candidate |
 |--------------|----------------------|
 | Google Drive / iCloud Files | Nextcloud Files |
-| Google Photos / iCloud Photos | Nextcloud Photos or Immich |
+| Google Photos / iCloud Photos | Nextcloud Memories |
 | Google Contacts / iCloud Contacts | Nextcloud Contacts |
 | Google Calendar / iCloud Calendar | Nextcloud Calendar |
 | Google Keep / Apple Notes | Nextcloud Notes |
 
-Each candidate is evaluated on its own merits before being added. Immich is a separate evaluation from Nextcloud — it is not assumed.
+Each candidate is evaluated on its own merits before being added.
 
 ## Services Index
 
 | Service | Category | Status |
 |---------|----------|--------|
 | PostgreSQL | Database (shared) | ✅ Done |
-| Nextcloud | Files, contacts, calendar | ✅ Done |
+| Nextcloud | Files, contacts, calendar, memories | ✅ Done |
 | Redis | Cache + file locking | ⏸ Deferred — DB locking sufficient for now |
-| Immich | Photo management | 🔍 Not yet evaluated — defer until Nextcloud Photos is assessed |
 
 ## Open Decisions
 
 1. ~~Is Nextcloud worth running?~~ — yes, confirmed by user
-2. ~~PostgreSQL image: plain vs pgvector?~~ — plain `postgres:17` (Nextcloud doesn't need pgvector)
-3. Immich vs Nextcloud Photos — evaluate after Nextcloud is deployed; Nextcloud Photos may be sufficient
-4. Backup strategy — `pg_dumpall` + volume tar; see `examples/services/README.md`
+2. ~~PostgreSQL image: plain vs pgvector?~~ — plain `postgres:17` (no pgvector needed)
+3. Backup strategy — `pg_dumpall` + volume tar; see `examples/services/README.md`
 
 ## Notes on Database
 

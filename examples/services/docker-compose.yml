@@ -131,6 +131,9 @@ services:
   # -------------------------------------------------------------------
   # Caddy — reverse proxy + TLS (inherited from Layer 2)
   #
+  # Also serves as the Nextcloud FPM HTTP frontend via php_fastcgi.
+  # Mounts the nextcloud-data volume to serve static assets directly.
+  #
   # Build once: docker build -f Dockerfile.caddy -t homelab-caddy .
   # -------------------------------------------------------------------
   caddy:
@@ -148,6 +151,7 @@ services:
     volumes:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data
+      - nextcloud-data:/var/www/html:ro
     restart: unless-stopped
 
   # -------------------------------------------------------------------
@@ -180,7 +184,7 @@ services:
   #   */5 * * * * root docker exec --user www-data nextcloud \
   #     php -f /var/www/html/cron.php
   #
-  # Shares the nextcloud-data volume with nextcloud-nginx.
+  # Shares the nextcloud-data volume with Caddy (FPM frontend).
   # -------------------------------------------------------------------
   nextcloud:
     image: nextcloud:fpm-alpine
@@ -203,24 +207,6 @@ services:
       - nextcloud-data:/var/www/html
     depends_on:
       - postgres
-    restart: unless-stopped
-
-  # -------------------------------------------------------------------
-  # Nextcloud nginx — HTTP frontend — Layer 3
-  #
-  # Serves static assets directly from the shared nextcloud-data volume.
-  # Proxies PHP requests to Nextcloud FPM at localhost:9000.
-  # Caddy proxies nextcloud.${DOMAIN} → localhost:8081 (this container).
-  # -------------------------------------------------------------------
-  nextcloud-nginx:
-    image: nginx:alpine
-    container_name: nextcloud-nginx
-    network_mode: host
-    volumes:
-      - nextcloud-data:/var/www/html:ro
-      - ./config/nextcloud-nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - nextcloud
     restart: unless-stopped
 
 volumes:

@@ -69,7 +69,7 @@ The monitoring tool's data is **uniquely non-critical** compared to every other 
 |---------|----------------------|----------|
 | Nextcloud | Files, calendars, contacts | 🔴 Catastrophic |
 | Vaultwarden | All passwords | 🔴 Critical |
-| Immich | Photo index | 🟠 Significant |
+| Nextcloud | Files, calendar, contacts, Memories | 🔴 Catastrophic |
 | **Uptime Kuma** | Uptime history graphs | 🟡 Inconvenient |
 
 Uptime history is observability data, not user data. It reconstructs itself simply by running. This makes monitoring the **most defensible SQLite exception** in the entire stack.
@@ -119,7 +119,7 @@ Phone notifications work at Layer 0 — the server makes outbound connections to
 |-------|---------------------|
 | **Layer 0 (now)** | Dashboard on LAN only; phone alerts via ntfy fully working |
 | **Layer 1** | Dashboard exposed via reverse proxy — remote access, no tool change |
-| **Layer 2+** | Monitors Nextcloud, Vaultwarden, Immich, etc. — no tool change |
+| **Layer 2+** | Monitors Nextcloud, Vaultwarden, etc. — no tool change |
 | **Future** | Migrate to shared PostgreSQL when upstream support ships |
 
 ---
