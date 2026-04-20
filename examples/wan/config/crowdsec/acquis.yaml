@@ -1,0 +1,17 @@
+# CrowdSec log acquisition configuration
+# Defines which log sources the agent parses
+
+# System syslog — SSH, sudo, kernel iptables LOG entries
+filenames:
+  - /var/log/syslog
+  - /var/log/kern.log
+  - /var/log/auth.log
+labels:
+  type: syslog
+---
+# Docker container logs — parses all running containers
+# CrowdSec applies the right parser per container (WireGuard, Caddy, etc.)
+source: docker
+container_name_regexp: ".*"
+labels:
+  type: docker

@@ -1,0 +1,26 @@
+{
+  "cloudflare": [
+    {
+      "authentication": {
+        "api_token": "YOUR_CLOUDFLARE_API_TOKEN"
+      },
+      "zone_id": "YOUR_CLOUDFLARE_ZONE_ID",
+      "subdomains": [
+        {
+          "name": "",
+          "proxied": false,
+          "comment": "Root domain A record — updated to current public IP"
+        },
+        {
+          "name": "vpn",
+          "proxied": false,
+          "comment": "WireGuard endpoint — must NOT be proxied (Cloudflare cannot proxy UDP)"
+        }
+      ]
+    }
+  ],
+  "a": true,
+  "aaaa": false,
+  "purgeUnknownRecords": false,
+  "ttl": 300
+}

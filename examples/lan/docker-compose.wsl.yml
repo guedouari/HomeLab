@@ -1,0 +1,34 @@
+# WSL2 testing notes — use as a compose override:
+#   docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
+#
+# Why this file exists
+# --------------------
+# WSL2 on Windows 11 uses "mirrored networking" — all ports in use on the
+# Windows host are also occupied inside WSL2. This creates conflicts for:
+#
+#   Port 80  (AdGuard web UI):
+#     AdGuardHome.yaml sets http.address: 0.0.0.0:3000 by default.
+#     If you see AdGuard crashing, check what is listening on port 3000.
+#
+#   Port 8080 (Gatus dashboard):
+#     This override remaps Gatus to port 8081 on the WSL host.
+#     Access the dashboard at http://<WSL-IP>:8081 when testing.
+#
+#   Port 445 (Samba SMB):
+#     Windows LanmanServer occupies port 445. Samba will bind the port
+#     successfully inside the container (host mode) but Windows itself
+#     won't let connections through. Test from a separate device on the LAN.
+#
+#   Avahi / WSDD2 (service discovery):
+#     WSL2 NAT prevents mDNS/WSD multicast from reaching the real LAN.
+#     Discovery works correctly on real hardware.
+#
+# To get the WSL2 IP for testing:
+#   ip -4 addr show eth0
+#   smbclient -L //127.0.0.1 -N   (from inside WSL)
+
+services:
+  gatus:
+    network_mode: host
+    volumes:
+      - ./config/gatus/config.wsl.yaml:/config/config.yaml:ro

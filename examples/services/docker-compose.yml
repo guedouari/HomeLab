@@ -1,0 +1,213 @@
+services:
+
+  # -------------------------------------------------------------------
+  # Samba — LAN file sharing (inherited from Layer 0)
+  # -------------------------------------------------------------------
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    network_mode: host
+    cap_add:
+      - CAP_NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - ACCOUNT_homelab=${SAMBA_PASSWORD:-homelab}
+      - SAMBA_CONF_MAP_TO_GUEST=Bad User
+      - AVAHI_NAME=HomeLab
+      - SAMBA_CONF_WORKGROUP=WORKGROUP
+      - SAMBA_CONF_SERVER_STRING=HomeLab
+      - "SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+    volumes:
+      - ./data/media:/shares/media
+      - ./data/files:/shares/files
+      - ./data/backup:/shares/backup
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS filtering (inherited from Layer 0)
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/adguardhome:/opt/adguardhome/conf
+      - ./data/adguardhome:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Gatus — health dashboard (inherited from Layer 0)
+  # -------------------------------------------------------------------
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - SERVER_IP=${SERVER_IP}
+    volumes:
+      - ./config/gatus/config.yaml:/config/config.yaml:ro
+      - ./data/gatus:/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # CrowdSec — intrusion detection + community IP blocklist (Layer 1)
+  # -------------------------------------------------------------------
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - COLLECTIONS=crowdsecurity/linux crowdsecurity/sshd crowdsecurity/iptables
+      - GID=1000
+    volumes:
+      - ./config/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ./config/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
+      - ./data/crowdsec:/var/lib/crowdsec/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # WireGuard — VPN (inherited from Layer 1)
+  # -------------------------------------------------------------------
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: wireguard
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - TZ=${TZ}
+      - SERVERURL=${WIREGUARD_URL}
+      - SERVERPORT=${WIREGUARD_PORT:-51820}
+      - PEERS=${WIREGUARD_PEERS:-phone,laptop}
+      - PEERDNS=${SERVER_IP}
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=${WIREGUARD_ALLOWEDIPS:-0.0.0.0/0}
+      - LOG_CONFS=true
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./data/wireguard:/config
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Cloudflare dynDNS (inherited from Layer 2)
+  # -------------------------------------------------------------------
+  cloudflare-ddns:
+    image: timothyjmiller/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/cloudflare-ddns/cloudflare.json:/config/cloudflare.json:ro
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Sablier — on-demand container lifecycle (inherited from Layer 2)
+  # -------------------------------------------------------------------
+  sablier:
+    image: acouvreur/sablier:latest
+    container_name: sablier
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - SABLIER_PROVIDER_NAME=docker
+      - SABLIER_SERVER_PORT=10000
+      - SABLIER_SESSIONS_DEFAULT_DURATION=1m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/sablier:/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Caddy — reverse proxy + TLS (inherited from Layer 2)
+  #
+  # Also serves as the Nextcloud FPM HTTP frontend via php_fastcgi.
+  # Mounts the nextcloud-data volume to serve static assets directly.
+  #
+  # Build once: docker build -f Dockerfile.caddy -t homelab-caddy .
+  # -------------------------------------------------------------------
+  caddy:
+    image: homelab-caddy
+    container_name: caddy
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - DOMAIN=${DOMAIN}
+      - ACME_EMAIL=${ACME_EMAIL}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+      - nextcloud-data:/var/www/html:ro
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # PostgreSQL — shared database — Layer 3
+  #
+  # Shared instance: one DB + dedicated user per service.
+  # Nextcloud creates its own schema on first start via env vars.
+  #
+  # Backup: docker exec postgres pg_dumpall -U postgres > backup.sql
+  # Store in data/backup/ (accessible via Samba backup share).
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    network_mode: host
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Nextcloud FPM — PHP application server — Layer 3
+  #
+  # Auto-installs on first start via env vars — no web wizard needed.
+  # Wait ~2 minutes after first start before accessing the web UI.
+  #
+  # Background jobs: add a cron job on the host:
+  #   */5 * * * * root docker exec --user www-data nextcloud \
+  #     php -f /var/www/html/cron.php
+  #
+  # Shares the nextcloud-data volume with Caddy (FPM frontend).
+  # -------------------------------------------------------------------
+  nextcloud:
+    image: nextcloud:fpm-alpine
+    container_name: nextcloud
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_HOST=localhost
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.${DOMAIN} localhost ${SERVER_IP}
+      - PHP_UPLOAD_LIMIT=512M
+      - PHP_MEMORY_LIMIT=512M
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITECLIURL=https://nextcloud.${DOMAIN}
+    volumes:
+      - nextcloud-data:/var/www/html
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  nextcloud-data:

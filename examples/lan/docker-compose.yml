@@ -1,0 +1,124 @@
+services:
+
+  # -------------------------------------------------------------------
+  # Samba — LAN file sharing (SMB/CIFS)
+  #
+  # network_mode: host — required for Avahi mDNS multicast (macOS/iOS
+  #   Bonjour discovery). No port mappings needed or allowed.
+  #
+  # Auth model: one shared LAN credential — works out of the box on all
+  #   clients including Windows, no client configuration needed.
+  #
+  #   Windows 10+ blocks guest SMB sessions at the client driver level —
+  #   no server-side workaround exists. A real account lets Windows
+  #   authenticate cleanly: it prompts once, saves to Credential Manager,
+  #   and never asks again.
+  #
+  #   Linux / Android / macOS / iOS: connect as guest automatically.
+  #   MAP_TO_GUEST=Bad User maps any unknown/failed login to guest,
+  #   so these clients need zero configuration.
+  #
+  # Default LAN credentials: homelab / homelab
+  #   Override SAMBA_PASSWORD in .env to change the password.
+  #
+  # Discovery (all enabled):
+  #   avahi  — Bonjour; macOS Finder + iOS Files (HomeLab.local)
+  #   wsdd2  — WS-Discovery; Windows Network sidebar
+  #   netbios — legacy; older smart TVs, Android apps
+  #
+  # macOS/iOS: vfs_fruit + streams_xattr on by default — metadata,
+  #   tags and resource forks handled correctly.
+  #
+  # Shares:
+  #   media  — media files (Smart TV, Steam Deck, etc.)
+  #   files  — general file exchange
+  #   backup — backups
+  #
+  # First-run permission fix (run once after first start):
+  #   docker exec samba chmod -R 777 /shares
+  # -------------------------------------------------------------------
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    network_mode: host
+    cap_add:
+      - CAP_NET_ADMIN          # required by wsdd2
+    environment:
+      - TZ=${TZ}
+      # Shared LAN account — Windows authenticates with this; others connect as guest
+      - ACCOUNT_homelab=${SAMBA_PASSWORD:-homelab}
+      - SAMBA_CONF_MAP_TO_GUEST=Bad User   # unknown/failed logins → guest
+      # Discovery — all enabled
+      - AVAHI_NAME=HomeLab
+      - SAMBA_CONF_WORKGROUP=WORKGROUP
+      - SAMBA_CONF_SERVER_STRING=HomeLab
+      # Share definitions — semicolons are translated to newlines by the image
+      - "SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+    volumes:
+      - ./data/media:/shares/media
+      - ./data/files:/shares/files
+      - ./data/backup:/shares/backup
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS ad blocking + local DNS records
+  #
+  # network_mode: host — required for port 53 (UDP + TCP) without
+  #   conflicting with systemd-resolved. Serving port 53 in bridge
+  #   mode requires disabling systemd-resolved stub listener first.
+  #
+  # Setup wizard: skipped if AdGuardHome.yaml exists in the conf volume.
+  #   Pre-baked config lives at ./config/adguardhome/AdGuardHome.yaml.
+  #   Edit it before first run:
+  #     - Set dns.bind_hosts to your server's static LAN IP (or 0.0.0.0)
+  #     - Replace the admin password hash
+  #     - Update filtering.rewrites with your hostname → LAN IP
+  #
+  # After starting: set the server's IP as Primary DNS in router DHCP.
+  #   All devices on the LAN will use AdGuard Home automatically.
+  #
+  # Web UI: http://<host-ip>:3000   (admin / see ADGUARD_PASSWORD in .env)
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/adguardhome:/opt/adguardhome/conf
+      - ./data/adguardhome:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Gatus — lightweight service health dashboard
+  #
+  # 24 MB image (Go binary). No wizard, no database — config is a
+  # single YAML file mounted at ./config/gatus/config.yaml.
+  #
+  # Edit config.yaml before first run:
+  #   - Replace ${SERVER_IP} references with your server's static LAN IP
+  #     (or set SERVER_IP in .env — it is substituted automatically)
+  #
+  # Monitor types in use: HTTP, DNS, TCP.
+  # Add more endpoints in config.yaml as new services are deployed.
+  #
+  # Optional notifications: uncomment the alerting block in config.yaml
+  # and set a ntfy topic (or any of the 30+ supported providers).
+  #
+  # Web UI: http://<host-ip>:8080
+  # -------------------------------------------------------------------
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=${TZ}
+      - SERVER_IP=${SERVER_IP}
+    volumes:
+      - ./config/gatus/config.yaml:/config/config.yaml:ro
+      - ./data/gatus:/data
+    restart: unless-stopped

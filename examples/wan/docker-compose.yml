@@ -1,0 +1,142 @@
+services:
+
+  # -------------------------------------------------------------------
+  # Samba — LAN file sharing (SMB/CIFS)
+  # (inherited from Layer 0 — see examples/lan/ for full documentation)
+  # -------------------------------------------------------------------
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    network_mode: host
+    cap_add:
+      - CAP_NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - ACCOUNT_homelab=${SAMBA_PASSWORD:-homelab}
+      - SAMBA_CONF_MAP_TO_GUEST=Bad User
+      - AVAHI_NAME=HomeLab
+      - SAMBA_CONF_WORKGROUP=WORKGROUP
+      - SAMBA_CONF_SERVER_STRING=HomeLab
+      - "SAMBA_VOLUME_CONFIG_media=[media]; path = /shares/media; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_files=[files]; path = /shares/files; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+      - "SAMBA_VOLUME_CONFIG_backup=[backup]; path = /shares/backup; guest ok = yes; read only = no; force create mode = 0664; force directory mode = 0775"
+    volumes:
+      - ./data/media:/shares/media
+      - ./data/files:/shares/files
+      - ./data/backup:/shares/backup
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # AdGuard Home — DNS ad blocking + local DNS records
+  # (inherited from Layer 0 — see examples/lan/ for full documentation)
+  #
+  # VPN clients: set PEERDNS to SERVER_IP so WireGuard peers use
+  # AdGuard Home automatically. No extra AdGuard config needed.
+  # -------------------------------------------------------------------
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config/adguardhome:/opt/adguardhome/conf
+      - ./data/adguardhome:/opt/adguardhome/work
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # Gatus — lightweight service health dashboard
+  # (inherited from Layer 0 — see examples/lan/ for full documentation)
+  # -------------------------------------------------------------------
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=${TZ}
+      - SERVER_IP=${SERVER_IP}
+    volumes:
+      - ./config/gatus/config.yaml:/config/config.yaml:ro
+      - ./data/gatus:/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # CrowdSec — intrusion detection + community IP blocklist (Layer 1)
+  #
+  # Architecture:
+  #   CrowdSec (this container)  → detects attacks from logs
+  #   iptables (host kernel)     → enforces bans (static + bouncer)
+  #
+  # First-time setup:
+  #   1. Run scripts/setup-firewall.sh to apply baseline iptables rules.
+  #   2. (Optional) Install crowdsec-firewall-bouncer on the host for
+  #      automatic banning — see scripts/setup-firewall.sh for instructions.
+  #
+  # LAPI port: 8090 (overridden from 8080 to avoid Gatus conflict)
+  # -------------------------------------------------------------------
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=${TZ}
+      - COLLECTIONS=crowdsecurity/linux crowdsecurity/sshd crowdsecurity/iptables
+      - GID=1000
+    volumes:
+      - ./config/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ./config/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
+      - ./data/crowdsec:/var/lib/crowdsec/data
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
+  # WireGuard — VPN server (Layer 1)
+  #
+  # network_mode: host — required so the wg0 interface has access to
+  #   the LAN. VPN peers will route traffic through this interface.
+  #
+  # Prerequisites:
+  #   1. Forward UDP port ${WIREGUARD_PORT:-51820} on your router to
+  #      this server's LAN IP.
+  #   2. Set WIREGUARD_URL in .env to your public IP or dynDNS hostname.
+  #      At Layer 2 this will be your Cloudflare domain.
+  #
+  # Config generation (first start):
+  #   Keys and peer configs are auto-generated and written to ./data/wireguard/
+  #   Peer configs: ./data/wireguard/peer_<name>/peer_<name>.conf
+  #   QR codes:     ./data/wireguard/peer_<name>/peer_<name>.png
+  #
+  # Adding peers after initial start:
+  #   Add names to WIREGUARD_PEERS and restart. Existing peers unchanged.
+  #
+  # DNS for VPN clients:
+  #   WIREGUARD_DNS = server's LAN IP → VPN peers use AdGuard Home.
+  #   Change to 1.1.1.1 if you don't want VPN peers filtered.
+  #
+  # Tunnel mode:
+  #   WIREGUARD_ALLOWEDIPS=0.0.0.0/0        → full tunnel (all traffic)
+  #   WIREGUARD_ALLOWEDIPS=192.168.1.0/24   → split tunnel (LAN access only)
+  # -------------------------------------------------------------------
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: wireguard
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - TZ=${TZ}
+      - SERVERURL=${WIREGUARD_URL}
+      - SERVERPORT=${WIREGUARD_PORT:-51820}
+      - PEERS=${WIREGUARD_PEERS:-phone,laptop}
+      - PEERDNS=${SERVER_IP}
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=${WIREGUARD_ALLOWEDIPS:-0.0.0.0/0}
+      - LOG_CONFS=true
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./data/wireguard:/config
+    restart: unless-stopped

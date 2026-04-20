@@ -1,0 +1,8 @@
+# Ignore the live env file; commit only the example
+.env
+
+# Data volumes are runtime-only — not tracked
+data/media/
+data/files/
+data/backup/
+data/postgres/

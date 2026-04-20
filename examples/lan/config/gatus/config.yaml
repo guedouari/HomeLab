@@ -1,0 +1,47 @@
+# Gatus monitoring config — edit SERVER_IP before first run.
+# All monitor URLs use SERVER_IP so this file can be committed as-is;
+# the actual IP is injected via the SERVER_IP env var in compose.
+#
+# Alternatively, replace ${SERVER_IP} with your server's static LAN IP directly.
+
+web:
+  port: 8080
+
+endpoints:
+  - name: AdGuard Home
+    url: http://${SERVER_IP}:3000
+    interval: 60s
+    conditions:
+      - '[STATUS] == 200'
+
+  - name: DNS (AdGuard)
+    # For DNS checks: just the server IP — no URL scheme.
+    # On WSL2: use the WSL2 eth0 IP, not 127.0.0.1
+    # (AdGuard Home binds to the specific interface IP on WSL2)
+    url: '${SERVER_IP}'
+    dns:
+      query-name: google.com
+      query-type: A
+    interval: 60s
+    conditions:
+      - '[DNS_RCODE] == NOERROR'
+
+  - name: Samba (SMB port)
+    url: tcp://${SERVER_IP}:445
+    interval: 60s
+    conditions:
+      - '[CONNECTED] == true'
+
+# Optional: add ntfy notifications.
+# Uncomment and set your topic to receive alerts when a service goes down.
+#
+# alerting:
+#   ntfy:
+#     url: https://ntfy.sh
+#     topic: homelab-alerts     # pick a unique private topic name
+#
+# Then add to any endpoint:
+#   alerts:
+#     - type: ntfy
+#       failure-threshold: 3
+#       send-on-resolved: true

@@ -21,29 +21,29 @@ For a home server where RAM is a real constraint (Raspberry Pi, Steam Machine ru
 
 ## Candidates
 
-### MariaDB (linuxserver/mariadb)
+> **Image verification** — before finalising any service choice, confirm the Docker image exists and document the exact registry path. Pull the image or check the source registry directly; do not rely on documentation that has not been tested.
+
+### MariaDB (`lscr.io/linuxserver/mariadb`)
 
 MySQL-compatible relational database.
 
 | Property | Value |
 |----------|-------|
-| linuxserver image | ✅ |
+| Verified image | `lscr.io/linuxserver/mariadb` ✅ (linuxserver, actively maintained) |
 | Nextcloud support | ✅ officially recommended |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
-| Immich support | ❌ Immich requires PostgreSQL (pgvector extension) |
 
-### PostgreSQL (linuxserver/postgresql)
+### PostgreSQL (`postgres:17`)
 
 Advanced open-source relational database.
 
 | Property | Value |
 |----------|-------|
-| linuxserver image | ✅ |
+| Verified image | `postgres:17` ✅ (Docker Official Image) |
 | Nextcloud support | ✅ officially supported |
 | Vaultwarden support | ✅ |
 | Gitea support | ✅ |
-| Immich support | ✅ required (needs pgvector) |
 
 ---
 
@@ -51,16 +51,13 @@ Advanced open-source relational database.
 
 | Service | Layer | SQLite | MariaDB | PostgreSQL | Notes |
 |---------|-------|:------:|:-------:|:----------:|-------|
-| Uptime Kuma | 0 | ✅ built-in (only) | — | ❌ not yet supported | PostgreSQL backend is in development upstream; SQLite is the production option |
 | AdGuard Home | 0 | ✅ built-in | — | — | Uses its own storage; no external DB needed |
 | Samba | 0 | — | — | — | No database needed |
 | Nextcloud | 2 | ⚠️ not for production | ✅ recommended | ✅ supported | SQLite not suitable beyond testing |
 | Vaultwarden | 2 | ⚠️ default but migrate | ✅ | ✅ | SQLite is the default; migrate to PostgreSQL per project policy |
-| Jellyfin | 2 | ✅ built-in | — | — | No relational DB needed; uses its own internal store |
-| Immich | 2 | ❌ | ❌ | ✅ required | Needs pgvector extension |
 | Gitea | 2 | ⚠️ small installs but migrate | ✅ | ✅ | SQLite acceptable initially; migrate to PostgreSQL per project policy |
 
-**Key finding:** Immich requires PostgreSQL and cannot use MariaDB. Nextcloud works with both. Choosing MariaDB would force a second database container when Immich is added. Choosing PostgreSQL covers all services with a single instance.
+**Key finding:** Nextcloud and future Layer 3 services (Vaultwarden, Gitea) all support PostgreSQL. Choosing a single shared PostgreSQL instance eliminates per-service database sidecars and gives one backup target.
 
 ---
 
@@ -69,20 +66,18 @@ Advanced open-source relational database.
 **PostgreSQL is the single shared database server.**
 
 Reasons:
-- Only engine that covers all current and planned services (including Immich's pgvector requirement)
+- Only engine that covers all current and planned services
 - Nextcloud officially supports PostgreSQL — no degraded experience vs MariaDB
 - One engine to operate, back up, and understand
-- linuxserver image available
+- `postgres:17` official image — Verified Publisher on Docker Hub, multi-arch (AMD64 + ARM64)
 - Per-service isolation via separate databases and users
 
 ### Instance model
 
 ```
 postgres (shared container)
-├── adguardhome_db / adguardhome_user   (if needed in future)
 ├── nextcloud_db   / nextcloud_user
 ├── vaultwarden_db / vaultwarden_user   (if moving off SQLite)
-├── immich_db      / immich_user
 └── gitea_db       / gitea_user         (if moving off SQLite)
 ```
 
@@ -98,7 +93,7 @@ Several Layer 2 services (notably Nextcloud) benefit significantly from a **cach
 
 ## Constraints
 
-- Must run as a Docker container (linuxserver image required)
+- Must run as a Docker container (official vendor image; verified and actively maintained)
 - Must be reachable by containers across Docker networks (internal bridge network)
 - Must not be exposed outside the Docker network (no published ports)
 
@@ -106,11 +101,10 @@ Several Layer 2 services (notably Nextcloud) benefit significantly from a **cach
 
 ## Open Decisions
 
-1. **pgvector**: confirm linuxserver/postgresql image includes pgvector, or determine how to add it (needed for Immich at Layer 2)
-2. **Backup strategy**: how and when to back up the shared instance — decided at implementation
+1. **Backup strategy**: how and when to back up the shared instance — decided at implementation
 
 ## Status
 
-**Decided: PostgreSQL (linuxserver/postgresql) — single shared instance**
+**Decided: PostgreSQL (`postgres:17`) — single shared instance**
 
-Deployment details and pgvector confirmation remain open until implementation.
+Official `postgres:17` from Docker Hub — Verified Publisher, multi-arch (AMD64 + ARM64). Plain PostgreSQL is sufficient; no extensions needed for current services.

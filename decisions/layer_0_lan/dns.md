@@ -29,13 +29,16 @@ When a WireGuard peer is configured, its config includes a `DNS` field. Setting 
 
 ## Candidates
 
-Technitium is dropped from consideration — it has no linuxserver image and is significantly more complex to operate without meaningful benefit for this use case.
+Technitium is dropped from consideration — it is significantly more complex to operate without meaningful benefit for this use case.
 
 ### Pi-hole vs AdGuard Home
 
+> **Image verification** — before finalising any service choice, confirm the Docker image exists and document the exact registry path. Pull the image or check the source registry directly; do not rely on documentation that has not been tested.
+
 | Feature | Pi-hole | AdGuard Home |
 |---------|---------|--------------|
-| linuxserver image | ✅ | ✅ |
+| Verified Docker image | `pihole/pihole` (Docker Hub) | `adguard/adguardhome` (Docker Hub) |
+| linuxserver image | ❌ none | ❌ none (`adguardhome-sync` exists but is for config sync only) |
 | Local DNS records / rewrites | ✅ (custom DNS entries) | ✅ (DNS rewrites, cleaner UI) |
 | Ad/tracker blocking | ✅ mature, huge blocklist community | ✅ good, growing ecosystem |
 | Upstream DoH / DoT support | ❌ requires cloudflared sidecar | ✅ built-in |
@@ -81,7 +84,7 @@ On most Linux hosts, `systemd-resolved` occupies port 53 on `127.0.0.53`. It mus
 
 ## Constraints
 
-- Must run as a Docker container (linuxserver image preferred)
+- Must run as a Docker container (official vendor image preferred; linuxserver image if available)
 - Must support local DNS record overrides / rewrites
 - Must serve all device types in [device-support-matrix.md](../device-support-matrix.md)
 - Must be reachable at the server's static LAN IP on port 53
@@ -97,13 +100,14 @@ On most Linux hosts, `systemd-resolved` occupies port 53 on `127.0.0.53`. It mus
 
 ## Status
 
-**Decided: AdGuard Home**
+**Decided: AdGuard Home** — image: `adguard/adguardhome` (Docker Hub)
 
 Reasons:
 - Built-in DoH/DoT upstream encryption (no cloudflared sidecar needed)
 - Cleaner per-client controls without group management overhead
 - Modern UI with active development
-- linuxserver image available
+- Official vendor image verified: `adguard/adguardhome`
+- Neither candidate has a linuxserver image; constraint removed
 - VPN integration at Layer 1 is identical to Pi-hole — no re-evaluation needed
 
 Docker networking mode and upstream DNS provider remain open until implementation.
