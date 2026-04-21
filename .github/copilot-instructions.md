@@ -1,36 +1,38 @@
 # Copilot Instructions — HomeLab
 
-This is a **documentation and Docker Compose configuration** repository. There is no application code, no build system, and no test suite. All work is Markdown documents, Compose files, and service config files.
+This repository contains two things:
+
+1. **A working Docker Compose HomeLab stack** — reference configs for all four layers (LAN → WAN → Domain → Services), decision records (ADRs), and developer guides.
+2. **A TypeScript config generator** (`generator/`) — a CLI tool that generates ready-to-deploy Docker Compose + `.env` from user inputs. Currently in development; the layer generators are stubs.
+
+Tasks are tracked with [Backlog.md](https://github.com/MrLesk/Backlog.md) in `backlog/`. Run `backlog board` to see the Kanban.
 
 ---
 
 ## Repository Layout
 
 ```
-decisions/                        # Per-capability decision records
-  device-support-matrix.md        # Baseline device and connectivity requirements
-  layer_0_lan.md                  # Layer 0 index — capabilities and status
-  layer_1_wan.md                  # Layer 1 index (stub — not yet started)
-  layer_2_domain.md               # Layer 2 index (stub — not yet started)
-  layer_3_services.md             # Layer 3 index (stub — not yet started)
-  layer_0_lan/
-    prerequisites.md
-    file-sharing/                 # One folder per capability
-    dns/
-    monitoring/
-    database/                     # Out of scope for Layer 0; moved to Layer 3
-docs/
-  strategy.md                     # Cross-cutting principles
-  dev-setup-windows.md            # WSL + Docker developer setup guide
-examples/
-  lan/                            # Working Layer 0 reference implementation
-    docker-compose.yml
-    docker-compose.wsl.yml        # WSL2 limitations documentation (not a service override)
-    .env.example
-    config/                       # Pre-baked service config files (mounted read-only)
-      adguardhome/AdGuardHome.yaml
-      gatus/config.yaml
-    data/                         # Runtime data (excluded from git)
+src/                              # TypeScript generator (project root — primary focus)
+  index.ts                        # CLI entry point (Commander)
+  schema.ts                       # Zod input schema + GeneratorInput type
+  generate.ts                     # Orchestrator stub — layer generators go here
+backlog/                          # Backlog.md — task board, docs, and decision records
+  config.yml                      # Backlog.md project config (task prefix: BACK)
+  tasks/                          # Active tasks (BACK-N - title.md)
+  completed/                      # Done tasks
+  docs/                           # Product-level docs (Backlog.md scans here)
+    strategy.md                   # Cross-cutting principles (id: doc-1)
+  decisions/                      # Formal ADRs (flat, 1 file per decision-N - title.md)
+docs/                             # Developer docs (NOT scanned by Backlog.md)
+  dev-setup-windows.md            # WSL2 + Docker developer setup guide
+  research/                       # Per-capability research notes (nested, read-only reference)
+examples/                         # Working reference Docker Compose configs
+  lan/                            # Layer 0 — LAN (✅ tested)
+  wan/                            # Layer 1 — WAN + VPN (✅ tested)
+  domain/                         # Layer 2 — Domain + Caddy (✅ tested)
+  services/                       # Layer 3 — Nextcloud + PostgreSQL (✅ tested)
+package.json                      # Generator dependencies
+tsconfig.json                     # TypeScript config (CommonJS, strict)
 README.md
 ```
 
@@ -38,147 +40,772 @@ README.md
 
 ## Layer Model
 
-The project builds in **strict layers**. Never add Layer N+1 content until Layer N is working and verified.
+All four layers are **implemented and tested**. Each layer is a strict superset of the previous.
 
-| Layer | Name | Scope |
-|-------|------|-------|
-| **0** | LAN | Isolated local network — file sharing, DNS filtering, lightweight monitoring. No internet exposure. Light security. |
-| **1** | WAN | VPN (WireGuard) — secure remote access to the home LAN. Hardened security. Split-horizon DNS. |
-| **2** | Domain | Public domain name — dynDNS, reverse proxy, Sablier (on-demand containers), TLS. No direct IP access; everything routes through the proxy. |
-| **3** | Services | User-chosen self-hosted services. Each evaluated independently. Database introduced here when a service needs it. |
-
-Each layer is a **strict superset** of the previous.
+| Layer | Name | Status | Scope |
+|-------|------|--------|-------|
+| **0** | LAN | ✅ Done | DNS filtering (AdGuard), file sharing (Samba), monitoring (Gatus) |
+| **1** | WAN | ✅ Done | WireGuard VPN + CrowdSec firewall + split-horizon DNS |
+| **2** | Domain | ✅ Done | dynDNS, Caddy reverse proxy + TLS, Sablier on-demand startup |
+| **3** | Services | ✅ Done | Nextcloud FPM (files, contacts, calendar, Memories) + PostgreSQL |
 
 ---
 
 ## Project Principles
 
-These principles are applied in order when making any decision. When principles conflict, the earlier one wins.
+Applied in order. Earlier principles win when they conflict.
 
 ### 1. Lighter is better — fewer containers
 
-Prefer an image that bundles multiple needed features over running multiple separate containers. Prefer smaller images and lower RAM footprint. If a feature requires adding a sidecar container, that is a strike against the solution.
+Prefer an image that bundles multiple features over running multiple containers. Caddy `php_fastcgi` is used instead of a separate nginx sidecar for Nextcloud FPM. Prefer smaller images and lower RAM footprint.
 
 ### 2. File config over wizard / UI config
 
-Prefer services where the full configuration lives in a version-controlled file (YAML, TOML, INI, env vars). A service that can only be configured through a browser wizard or a web UI is harder to reproduce and harder to automate.
-
-- Pre-baking a config file that skips a first-run wizard is acceptable — the result is still reproducible.
-- A service that **requires** a browser for every fresh deployment is deprioritised.
+Full configuration lives in version-controlled files (YAML, TOML, env vars). Services that require a browser wizard for every fresh deployment are deprioritised.
 
 ### 3. Evaluate before committing
 
-No service is added to the project until it has been:
-1. Confirmed to serve a real use case for this specific setup
-2. Verified as a working Docker image on the target architectures (actually pulled)
+No service is added until:
+1. Confirmed to serve a real use case
+2. Verified as a working Docker image on target architectures (actually pulled)
 3. Tested locally with sane defaults
-4. Documented in the decision folder with a passing `testing.md`
+4. Documented with a passing `testing.md`
 
 Speculative additions go in `horizon.md` files, not in the stack.
 
 ### 4. Image verification is mandatory
 
-Before referencing any Docker image anywhere in the project, confirm it exists by pulling it or checking the registry. **Do not document an image path that has not been tested.** linuxserver.io (`lscr.io`) does not provide images for every service — always verify.
+Before referencing any Docker image, confirm it exists by pulling it or checking the registry. Do not document an unverified image path.
 
 ### 5. ARM64 required
 
-Every selected image must support ARM64 (Raspberry Pi target). Verify from the manifest, not from documentation alone.
+Every selected image must support ARM64 (Raspberry Pi target). Verify from the manifest.
 
 ### 6. FOSS first
 
-All services must be free and open-source. The one exception is Valve/Steam: it is a first-class citizen in this project because the Steam Machine is a core hardware target and gaming performance is a first-order concern.
+All services must be FOSS-licensed. Exception: Valve/Steam is a first-class citizen because the Steam Machine is a core hardware target.
 
 ---
 
-## How Decision Folders Work
+## How Decisions Are Organised
 
-Every capability has a decision **folder** in `decisions/layer_X/<capability>/` with these files:
+Formal architecture decisions live in `backlog/decisions/` as flat `decision-N - title.md` files with YAML frontmatter (`id`, `title`, `date`, `status`).
 
-| File | Contents |
-|------|----------|
-| `README.md` | Index: role, status (🔍 / ✅), links to sub-files, constraints |
-| `candidates.md` | Candidate comparison — "Pulled & verified" must be ✅ before selecting |
-| `networking.md` | Docker networking modes and trade-offs |
-| `configuration.md` | Config design: files, env vars, auth model, open questions |
-| `testing.md` | Verification checklist and results — **the gate for finalising status** |
-| `horizon.md` | Out-of-scope ideas that surfaced during discussion |
+Deep research notes (candidate comparisons, networking analysis, testing results) live in `docs/research/layer_X_*/` — they are reference material only, not task items.
 
-**`testing.md` is the gate.** Status stays 🔍 until it contains passing results.
+**Current decisions (all Accepted):**
+- decision-1: Docker + Compose (platform)
+- decision-2: AdGuard Home (DNS filtering)
+- decision-3: Samba (file sharing)
+- decision-4: Gatus (monitoring)
+- decision-5: WireGuard (VPN)
+- decision-6: CrowdSec (firewall)
+- decision-7: Caddy (reverse proxy + FPM)
+- decision-8: ddns-updater + Cloudflare (dynamic DNS)
+- decision-9: Sablier (on-demand containers)
+- decision-10: PostgreSQL 17 (shared database)
+- decision-11: Nextcloud FPM + Caddy (file sync suite)
 
-When a service passes testing:
-1. Mark results in `testing.md`
-2. Update `README.md` status → ✅
-3. Update the capability row in `decisions/layer_X_<name>.md`
-4. Add the service to `examples/` only then
+---
+
+## Generator (`src/`)
+
+The generator is a TypeScript CLI at the **project root** (`src/`, `package.json`, `tsconfig.json`). It is the primary active development focus.
+
+Key files:
+- `src/schema.ts` — Zod schema for all generator inputs (`GeneratorInput` type)
+- `src/index.ts` — Commander CLI; validates input, calls `generate()`
+- `src/generate.ts` — Orchestrator; calls per-layer generators (stubs)
+
+Development:
+```bash
+npm install
+npm run dev -- generate --help
+npm run typecheck
+```
+
+Tasks for the generator are in `backlog/tasks/` (BACK-1 through BACK-5). Run `backlog board` to see them.
 
 ---
 
 ## Critical Rules
 
-### No service name in high-level files until verified
+### No Immich — ever
 
-`README.md`, `docs/strategy.md`, `decisions/layer_*.md` index files must not name specific tools or images for a capability until that service has been verified running locally. Use capability-level language ("DNS filtering", "file sharing") until then. Specific names belong only in the individual decision files and `examples/`.
+Immich has been permanently removed from this project. Use Nextcloud Memories for photo management.
 
-### Database: introduce when needed
+### No Redis for now
 
-Do not add PostgreSQL (or any database) until a specific Layer 3 service that needs it is being deployed. When added: single shared instance, one database + dedicated user per service. Choose `postgres:17` or `pgvector/pgvector:pg17` only when a confirmed service requires pgvector — not preemptively.
+Redis/Valkey is deferred — file locking via PostgreSQL is sufficient for the current scope.
+
+### Database: PostgreSQL only
+
+Use `postgres:17` (plain). No pgvector unless a specific service requires it. One shared instance, one database + user per service.
 
 ---
 
-## Examples
+## Examples Layout
 
-`examples/lan/` is the working reference implementation for Layer 0. It must be runnable after following the README pre-flight steps.
-
-- `docker-compose.yml` — production target (real Linux host)
-- `docker-compose.wsl.yml` — WSL2 limitations documentation (not a service file; explains why some tests behave differently on WSL2)
+Each `examples/` folder is a self-contained, runnable stack:
+- `docker-compose.yml` — production target (real Linux host, `network_mode: host`)
+- `docker-compose.wsl.yml` — WSL2 override (alternate ports, host-mode workarounds)
 - `.env.example` — all variables with defaults; copy to `.env` before running
-- `config/` — pre-baked config files mounted read-only into containers (`/config/` or equivalent)
-- `data/` — runtime state, excluded from git, created manually before first run
-
-Services prefer file-based configuration over environment variables when the image supports it. Config files live in `examples/lan/config/<service>/` and are mounted read-only.
-
-Data directories to create before first run:
-```bash
-mkdir -p data/media data/files data/backup data/adguardhome data/gatus
-```
+- `config/` — pre-baked config files mounted read-only
+- `data/` — runtime state, excluded from git
 
 ---
 
 ## WSL2 Development Notes
 
-See `docs/dev-setup-windows.md` for the full guide. Key points:
+See `docs/dev-setup-windows.md` for the full guide. Key constraints:
+- Port 445 owned by Windows `LanmanServer` — Samba binds inside container but Windows blocks it from outside
+- Port 53 owned by Windows DNS stub — AdGuard DNS conflicts; bind to specific eth0 IP instead
+- Port 8080 owned by `wslrelay.exe` — cannot be killed; use port 8082 for Gatus in WSL
+- NTFS bind mounts (`/mnt/d/...`) cause I/O errors inside containers — use WSL-native ext4 paths
+- Avahi/wsdd2 multicast doesn't propagate through WSL2 NAT — discovery only works on real hardware
 
-- Use a named isolated distro (`wsl --import homelab-test ...`) — never the primary distro
-- Disable Windows PATH bleed: `[interop] appendWindowsPath = false` in `/etc/wsl.conf`, then `wsl --terminate homelab-test`
-- Activate corporate CA certs with `sudo update-ca-certificates` before `apt` or `curl`
-- WSL2 limitations that affect testing:
-  - `LanmanServer` on Windows intercepts port 445 on all interfaces → `net view \\<WSL-IP>` fails from same machine
-  - NTFS bind mounts (`/mnt/d/...`) cause I/O errors inside containers — use WSL-native ext4 paths (`~/`)
-  - WSL2 internal DNS stub binds `10.255.255.254:53` → binding `0.0.0.0:53` conflicts; bind to specific eth0 IP instead
-  - Avahi/wsdd2 multicast doesn't propagate through WSL2 NAT → discovery only works on real hardware
-
-These are testing environment constraints, not bugs in the services.
+Use `docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d` for WSL2 testing.
 
 ---
 
 ## Hardware Targets
 
-All service decisions must account for all three targets:
-
 | Target | Notes |
 |--------|-------|
-| Steam Machine / x86_64 PC | Full feature set; gaming performance must not be degraded by background services; Sablier at Layer 2 is critical |
-| Raspberry Pi 4/5 (ARM64) | ARM64 image required for every service; Pi 4 may need lighter alternatives for CPU-intensive tasks |
+| Steam Machine / x86_64 PC | Full feature set; Sablier at Layer 2 is critical for gaming performance |
+| Raspberry Pi 4/5 (ARM64) | ARM64 image required for every service |
 | NAS (Synology / TrueNAS) | Docker-compatible; native NAS shares may coexist with containerised services |
 
 ---
 
 ## Session Continuity
 
-Decisions and findings must be written to project files as they happen — not held only in chat. When a session ends, anything that exists only in the conversation is lost.
+Decisions and findings must be written to project files as they happen — not held only in chat. Record outcomes in decision files, open questions in `Open Decisions` sections. Use `backlog task create` to track new work items rather than notes in chat.
 
-After each meaningful step:
-- Record the outcome in the appropriate decision file
-- If a topic is discussed without a conclusion, note the open question in the relevant `Open Decisions` section
 
-The checkpoint system in the session workspace (`~/.copilot/session-state/`) captures intermediate state across compactions. Use it alongside project files.
+<!-- BACKLOG.MD GUIDELINES START -->
+# Instructions for the usage of Backlog.md CLI Tool
+
+## Backlog.md: Comprehensive Project Management Tool via CLI
+
+### Assistant Objective
+
+Efficiently manage all project tasks, status, and documentation using the Backlog.md CLI, ensuring all project metadata
+remains fully synchronized and up-to-date.
+
+### Core Capabilities
+
+- ✅ **Task Management**: Create, edit, assign, prioritize, and track tasks with full metadata
+- ✅ **Search**: Fuzzy search across tasks, documents, and decisions with `backlog search`
+- ✅ **Acceptance Criteria**: Granular control with add/remove/check/uncheck by index
+- ✅ **Definition of Done checklists**: Per-task DoD items with add/remove/check/uncheck
+- ✅ **Board Visualization**: Terminal-based Kanban board (`backlog board`) and web UI (`backlog browser`)
+- ✅ **Git Integration**: Automatic tracking of task states across branches
+- ✅ **Dependencies**: Task relationships and subtask hierarchies
+- ✅ **Documentation & Decisions**: Structured docs and architectural decision records
+- ✅ **Export & Reporting**: Generate markdown reports and board snapshots
+- ✅ **AI-Optimized**: `--plain` flag provides clean text output for AI processing
+
+### Why This Matters to You (AI Agent)
+
+1. **Comprehensive system** - Full project management capabilities through CLI
+2. **The CLI is the interface** - All operations go through `backlog` commands
+3. **Unified interaction model** - You can use CLI for both reading (`backlog task 1 --plain`) and writing (
+   `backlog task edit 1`)
+4. **Metadata stays synchronized** - The CLI handles all the complex relationships
+
+### Key Understanding
+
+- **Tasks** live in `backlog/tasks/` as `task-<id> - <title>.md` files
+- **You interact via CLI only**: `backlog task create`, `backlog task edit`, etc.
+- **Use `--plain` flag** for AI-friendly output when viewing/listing
+- **Never bypass the CLI** - It handles Git, metadata, file naming, and relationships
+
+---
+
+# ⚠️ CRITICAL: NEVER EDIT TASK FILES DIRECTLY. Edit Only via CLI
+
+**ALL task operations MUST use the Backlog.md CLI commands**
+
+- ✅ **DO**: Use `backlog task edit` and other CLI commands
+- ✅ **DO**: Use `backlog task create` to create new tasks
+- ✅ **DO**: Use `backlog task edit <id> --check-ac <index>` to mark acceptance criteria
+- ❌ **DON'T**: Edit markdown files directly
+- ❌ **DON'T**: Manually change checkboxes in files
+- ❌ **DON'T**: Add or modify text in task files without using CLI
+
+**Why?** Direct file editing breaks metadata synchronization, Git tracking, and task relationships.
+
+---
+
+## 1. Source of Truth & File Structure
+
+### 📖 **UNDERSTANDING** (What you'll see when reading)
+
+- Markdown task files live under **`backlog/tasks/`** (drafts under **`backlog/drafts/`**)
+- Files are named: `task-<id> - <title>.md` (e.g., `task-42 - Add GraphQL resolver.md`)
+- Project documentation is in **`backlog/docs/`**
+- Project decisions are in **`backlog/decisions/`**
+
+### 🔧 **ACTING** (How to change things)
+
+- **All task operations MUST use the Backlog.md CLI tool**
+- This ensures metadata is correctly updated and the project stays in sync
+- **Always use `--plain` flag** when listing or viewing tasks for AI-friendly text output
+
+---
+
+## 2. Common Mistakes to Avoid
+
+### ❌ **WRONG: Direct File Editing**
+
+```markdown
+# DON'T DO THIS:
+
+1. Open backlog/tasks/task-7 - Feature.md in editor
+2. Change "- [ ]" to "- [x]" manually
+3. Add notes or final summary directly to the file
+4. Save the file
+```
+
+### ✅ **CORRECT: Using CLI Commands**
+
+```bash
+# DO THIS INSTEAD:
+backlog task edit 7 --check-ac 1  # Mark AC #1 as complete
+backlog task edit 7 --notes "Implementation complete"  # Add notes
+backlog task edit 7 --final-summary "PR-style summary"  # Add final summary
+backlog task edit 7 -s "In Progress" -a @agent-k  # Multiple commands: change status and assign the task when you start working on the task
+```
+
+---
+
+## 3. Understanding Task Format (Read-Only Reference)
+
+⚠️ **FORMAT REFERENCE ONLY** - The following sections show what you'll SEE in task files.
+**Never edit these directly! Use CLI commands to make changes.**
+
+### Task Structure You'll See
+
+```markdown
+---
+id: task-42
+title: Add GraphQL resolver
+status: To Do
+assignee: [@sara]
+labels: [backend, api]
+---
+
+## Description
+
+Brief explanation of the task purpose.
+
+## Acceptance Criteria
+
+<!-- AC:BEGIN -->
+
+- [ ] #1 First criterion
+- [x] #2 Second criterion (completed)
+- [ ] #3 Third criterion
+
+<!-- AC:END -->
+
+## Definition of Done
+
+<!-- DOD:BEGIN -->
+
+- [ ] #1 Tests pass
+- [ ] #2 Docs updated
+
+<!-- DOD:END -->
+
+## Implementation Plan
+
+1. Research approach
+2. Implement solution
+
+## Implementation Notes
+
+Progress notes captured during implementation.
+
+## Final Summary
+
+PR-style summary of what was implemented.
+```
+
+### How to Modify Each Section
+
+| What You Want to Change | CLI Command to Use                                       |
+|-------------------------|----------------------------------------------------------|
+| Title                   | `backlog task edit 42 -t "New Title"`                    |
+| Status                  | `backlog task edit 42 -s "In Progress"`                  |
+| Assignee                | `backlog task edit 42 -a @sara`                          |
+| Labels                  | `backlog task edit 42 -l backend,api`                    |
+| Description             | `backlog task edit 42 -d "New description"`              |
+| Add AC                  | `backlog task edit 42 --ac "New criterion"`              |
+| Add DoD                 | `backlog task edit 42 --dod "Ship notes"`                |
+| Check AC #1             | `backlog task edit 42 --check-ac 1`                      |
+| Check DoD #1            | `backlog task edit 42 --check-dod 1`                     |
+| Uncheck AC #2           | `backlog task edit 42 --uncheck-ac 2`                    |
+| Uncheck DoD #2          | `backlog task edit 42 --uncheck-dod 2`                   |
+| Remove AC #3            | `backlog task edit 42 --remove-ac 3`                     |
+| Remove DoD #3           | `backlog task edit 42 --remove-dod 3`                    |
+| Add Plan                | `backlog task edit 42 --plan "1. Step one\n2. Step two"` |
+| Add Notes (replace)     | `backlog task edit 42 --notes "What I did"`              |
+| Append Notes            | `backlog task edit 42 --append-notes "Another note"` |
+| Add Final Summary       | `backlog task edit 42 --final-summary "PR-style summary"` |
+| Append Final Summary    | `backlog task edit 42 --append-final-summary "Another detail"` |
+| Clear Final Summary     | `backlog task edit 42 --clear-final-summary` |
+
+---
+
+## 4. Defining Tasks
+
+### Creating New Tasks
+
+**Always use CLI to create tasks:**
+
+```bash
+# Example
+backlog task create "Task title" -d "Description" --ac "First criterion" --ac "Second criterion"
+```
+
+### Title (one liner)
+
+Use a clear brief title that summarizes the task.
+
+### Description (The "why")
+
+Provide a concise summary of the task purpose and its goal. Explains the context without implementation details.
+
+### Acceptance Criteria (The "what")
+
+**Understanding the Format:**
+
+- Acceptance criteria appear as numbered checkboxes in the markdown files
+- Format: `- [ ] #1 Criterion text` (unchecked) or `- [x] #1 Criterion text` (checked)
+
+**Managing Acceptance Criteria via CLI:**
+
+⚠️ **IMPORTANT: How AC Commands Work**
+
+- **Adding criteria (`--ac`)** accepts multiple flags: `--ac "First" --ac "Second"` ✅
+- **Checking/unchecking/removing** accept multiple flags too: `--check-ac 1 --check-ac 2` ✅
+- **Mixed operations** work in a single command: `--check-ac 1 --uncheck-ac 2 --remove-ac 3` ✅
+
+```bash
+# Examples
+
+# Add new criteria (MULTIPLE values allowed)
+backlog task edit 42 --ac "User can login" --ac "Session persists"
+
+# Check specific criteria by index (MULTIPLE values supported)
+backlog task edit 42 --check-ac 1 --check-ac 2 --check-ac 3  # Check multiple ACs
+# Or check them individually if you prefer:
+backlog task edit 42 --check-ac 1    # Mark #1 as complete
+backlog task edit 42 --check-ac 2    # Mark #2 as complete
+
+# Mixed operations in single command
+backlog task edit 42 --check-ac 1 --uncheck-ac 2 --remove-ac 3
+
+# ❌ STILL WRONG - These formats don't work:
+# backlog task edit 42 --check-ac 1,2,3  # No comma-separated values
+# backlog task edit 42 --check-ac 1-3    # No ranges
+# backlog task edit 42 --check 1         # Wrong flag name
+
+# Multiple operations of same type
+backlog task edit 42 --uncheck-ac 1 --uncheck-ac 2  # Uncheck multiple ACs
+backlog task edit 42 --remove-ac 2 --remove-ac 4    # Remove multiple ACs (processed high-to-low)
+```
+
+### Definition of Done checklist (per-task)
+
+Definition of Done items are a second checklist in each task. Defaults come from `definition_of_done` in the project config file (`backlog/config.yml`, `.backlog/config.yml`, or `backlog.config.yml`) or from Web UI Settings, and can be disabled per task.
+
+**Managing Definition of Done via CLI:**
+
+```bash
+# Add DoD items (MULTIPLE values allowed)
+backlog task edit 42 --dod "Run tests" --dod "Update docs"
+
+# Check/uncheck DoD items by index (MULTIPLE values supported)
+backlog task edit 42 --check-dod 1 --check-dod 2
+backlog task edit 42 --uncheck-dod 1
+
+# Remove DoD items by index
+backlog task edit 42 --remove-dod 2
+
+# Create without defaults
+backlog task create "Feature" --no-dod-defaults
+```
+
+**Key Principles for Good ACs:**
+
+- **Outcome-Oriented:** Focus on the result, not the method.
+- **Testable/Verifiable:** Each criterion should be objectively testable
+- **Clear and Concise:** Unambiguous language
+- **Complete:** Collectively cover the task scope
+- **User-Focused:** Frame from end-user or system behavior perspective
+
+Good Examples:
+
+- "User can successfully log in with valid credentials"
+- "System processes 1000 requests per second without errors"
+- "CLI preserves literal newlines in description/plan/notes/final summary; `\\n` sequences are not auto‑converted"
+
+Bad Example (Implementation Step):
+
+- "Add a new function handleLogin() in auth.ts"
+- "Define expected behavior and document supported input patterns"
+
+### Task Breakdown Strategy
+
+1. Identify foundational components first
+2. Create tasks in dependency order (foundations before features)
+3. Ensure each task delivers value independently
+4. Avoid creating tasks that block each other
+
+### Task Requirements
+
+- Tasks must be **atomic** and **testable** or **verifiable**
+- Each task should represent a single unit of work for one PR
+- **Never** reference future tasks (only tasks with id < current task id)
+- Ensure tasks are **independent** and don't depend on future work
+
+---
+
+## 5. Implementing Tasks
+
+### 5.1. First step when implementing a task
+
+The very first things you must do when you take over a task are:
+
+* set the task in progress
+* assign it to yourself
+
+```bash
+# Example
+backlog task edit 42 -s "In Progress" -a @{myself}
+```
+
+### 5.2. Review Task References and Documentation
+
+Before planning, check if the task has any attached `references` or `documentation`:
+- **References**: Related code files, GitHub issues, or URLs relevant to the implementation
+- **Documentation**: Design docs, API specs, or other materials for understanding context
+
+These are visible in the task view output. Review them to understand the full context before drafting your plan.
+
+### 5.3. Create an Implementation Plan (The "how")
+
+Previously created tasks contain the why and the what. Once you are familiar with that part you should think about a
+plan on **HOW** to tackle the task and all its acceptance criteria. This is your **Implementation Plan**.
+First do a quick check to see if all the tools that you are planning to use are available in the environment you are
+working in.
+When you are ready, write it down in the task so that you can refer to it later.
+
+```bash
+# Example
+backlog task edit 42 --plan "1. Research codebase for references\n2Research on internet for similar cases\n3. Implement\n4. Test"
+```
+
+## 5.4. Implementation
+
+Once you have a plan, you can start implementing the task. This is where you write code, run tests, and make sure
+everything works as expected. Follow the acceptance criteria one by one and MARK THEM AS COMPLETE as soon as you
+finish them.
+
+### 5.5 Implementation Notes (Progress log)
+
+Use Implementation Notes to log progress, decisions, and blockers as you work.
+Append notes progressively during implementation using `--append-notes`:
+
+```
+backlog task edit 42 --append-notes "Investigated root cause" --append-notes "Added tests for edge case"
+```
+
+```bash
+# Example
+backlog task edit 42 --notes "Initial implementation done; pending integration tests"
+```
+
+### 5.6 Final Summary (PR description)
+
+When you are done implementing a task you need to prepare a PR description for it.
+Because you cannot create PRs directly, write the PR as a clean summary in the Final Summary field.
+
+**Quality bar:** Write it like a reviewer will see it. A one‑liner is rarely enough unless the change is truly trivial.
+Include the key scope so someone can understand the impact without reading the whole diff.
+
+```bash
+# Example
+backlog task edit 42 --final-summary "Implemented pattern X because Reason Y; updated files Z and W; added tests"
+```
+
+**IMPORTANT**: Do NOT include an Implementation Plan when creating a task. The plan is added only after you start the
+implementation.
+
+- Creation phase: provide Title, Description, Acceptance Criteria, and optionally labels/priority/assignee.
+- When you begin work, switch to edit, set the task in progress and assign to yourself
+  `backlog task edit <id> -s "In Progress" -a "..."`.
+- Think about how you would solve the task and add the plan: `backlog task edit <id> --plan "..."`.
+- After updating the plan, share it with the user and ask for confirmation. Do not begin coding until the user approves the plan or explicitly tells you to skip the review.
+- Append Implementation Notes during implementation using `--append-notes` as progress is made.
+- Add Final Summary only after completing the work: `backlog task edit <id> --final-summary "..."` (replace) or append using `--append-final-summary`.
+
+## Phase discipline: What goes where
+
+- Creation: Title, Description, Acceptance Criteria, labels/priority/assignee.
+- Implementation: Implementation Plan (after moving to In Progress and assigning to yourself) + Implementation Notes (progress log, appended as you work).
+- Wrap-up: Final Summary (PR description), verify AC and Definition of Done checks.
+
+**IMPORTANT**: Only implement what's in the Acceptance Criteria. If you need to do more, either:
+
+1. Update the AC first: `backlog task edit 42 --ac "New requirement"`
+2. Or create a new follow up task: `backlog task create "Additional feature"`
+
+---
+
+## 6. Typical Workflow
+
+```bash
+# 1. Identify work
+backlog task list -s "To Do" --plain
+
+# 2. Read task details
+backlog task 42 --plain
+
+# 3. Start work: assign yourself & change status
+backlog task edit 42 -s "In Progress" -a @myself
+
+# 4. Add implementation plan
+backlog task edit 42 --plan "1. Analyze\n2. Refactor\n3. Test"
+
+# 5. Share the plan with the user and wait for approval (do not write code yet)
+
+# 6. Work on the task (write code, test, etc.)
+
+# 7. Mark acceptance criteria as complete (supports multiple in one command)
+backlog task edit 42 --check-ac 1 --check-ac 2 --check-ac 3  # Check all at once
+# Or check them individually if preferred:
+# backlog task edit 42 --check-ac 1
+# backlog task edit 42 --check-ac 2
+# backlog task edit 42 --check-ac 3
+
+# 8. Add Final Summary (PR Description)
+backlog task edit 42 --final-summary "Refactored using strategy pattern, updated tests"
+
+# 9. Mark task as done
+backlog task edit 42 -s Done
+```
+
+---
+
+## 7. Definition of Done (DoD)
+
+A task is **Done** only when **ALL** of the following are complete:
+
+### ✅ Via CLI Commands:
+
+1. **All acceptance criteria checked**: Use `backlog task edit <id> --check-ac <index>` for each
+2. **All Definition of Done items checked**: Use `backlog task edit <id> --check-dod <index>` for each
+3. **Final Summary added**: Use `backlog task edit <id> --final-summary "..."`
+4. **Status set to Done**: Use `backlog task edit <id> -s Done`
+
+### ✅ Via Code/Testing:
+
+5. **Tests pass**: Run test suite and linting
+6. **Documentation updated**: Update relevant docs if needed
+7. **Code reviewed**: Self-review your changes
+8. **No regressions**: Performance, security checks pass
+
+⚠️ **NEVER mark a task as Done without completing ALL items above**
+
+---
+
+## 8. Finding Tasks and Content with Search
+
+When users ask you to find tasks related to a topic, use the `backlog search` command with `--plain` flag:
+
+```bash
+# Search for tasks about authentication
+backlog search "auth" --plain
+
+# Search only in tasks (not docs/decisions)
+backlog search "login" --type task --plain
+
+# Search with filters
+backlog search "api" --status "In Progress" --plain
+backlog search "bug" --priority high --plain
+```
+
+**Key points:**
+- Uses fuzzy matching - finds "authentication" when searching "auth"
+- Searches task titles, descriptions, and content
+- Also searches documents and decisions unless filtered with `--type task`
+- Always use `--plain` flag for AI-readable output
+
+---
+
+## 9. Quick Reference: DO vs DON'T
+
+### Viewing and Finding Tasks
+
+| Task         | ✅ DO                        | ❌ DON'T                         |
+|--------------|-----------------------------|---------------------------------|
+| View task    | `backlog task 42 --plain`   | Open and read .md file directly |
+| List tasks   | `backlog task list --plain` | Browse backlog/tasks folder     |
+| Check status | `backlog task 42 --plain`   | Look at file content            |
+| Find by topic| `backlog search "auth" --plain` | Manually grep through files |
+
+### Modifying Tasks
+
+| Task          | ✅ DO                                 | ❌ DON'T                           |
+|---------------|--------------------------------------|-----------------------------------|
+| Check AC      | `backlog task edit 42 --check-ac 1`  | Change `- [ ]` to `- [x]` in file |
+| Add notes     | `backlog task edit 42 --notes "..."` | Type notes into .md file          |
+| Add final summary | `backlog task edit 42 --final-summary "..."` | Type summary into .md file |
+| Change status | `backlog task edit 42 -s Done`       | Edit status in frontmatter        |
+| Add AC        | `backlog task edit 42 --ac "New"`    | Add `- [ ] New` to file           |
+
+---
+
+## 10. Complete CLI Command Reference
+
+### Task Creation
+
+| Action           | Command                                                                             |
+|------------------|-------------------------------------------------------------------------------------|
+| Create task      | `backlog task create "Title"`                                                       |
+| With description | `backlog task create "Title" -d "Description"`                                      |
+| With AC          | `backlog task create "Title" --ac "Criterion 1" --ac "Criterion 2"`                 |
+| With final summary | `backlog task create "Title" --final-summary "PR-style summary"`                 |
+| With references  | `backlog task create "Title" --ref src/api.ts --ref https://github.com/issue/123`   |
+| With documentation | `backlog task create "Title" --doc https://design-docs.example.com`               |
+| With all options | `backlog task create "Title" -d "Desc" -a @sara -s "To Do" -l auth --priority high --ref src/api.ts --doc docs/spec.md` |
+| Create draft     | `backlog task create "Title" --draft`                                               |
+| Create subtask   | `backlog task create "Title" -p 42`                                                 |
+
+### Task Modification
+
+| Action           | Command                                     |
+|------------------|---------------------------------------------|
+| Edit title       | `backlog task edit 42 -t "New Title"`       |
+| Edit description | `backlog task edit 42 -d "New description"` |
+| Change status    | `backlog task edit 42 -s "In Progress"`     |
+| Assign           | `backlog task edit 42 -a @sara`             |
+| Add labels       | `backlog task edit 42 -l backend,api`       |
+| Set priority     | `backlog task edit 42 --priority high`      |
+
+### Acceptance Criteria Management
+
+| Action              | Command                                                                     |
+|---------------------|-----------------------------------------------------------------------------|
+| Add AC              | `backlog task edit 42 --ac "New criterion" --ac "Another"`                  |
+| Remove AC #2        | `backlog task edit 42 --remove-ac 2`                                        |
+| Remove multiple ACs | `backlog task edit 42 --remove-ac 2 --remove-ac 4`                          |
+| Check AC #1         | `backlog task edit 42 --check-ac 1`                                         |
+| Check multiple ACs  | `backlog task edit 42 --check-ac 1 --check-ac 3`                            |
+| Uncheck AC #3       | `backlog task edit 42 --uncheck-ac 3`                                       |
+| Mixed operations    | `backlog task edit 42 --check-ac 1 --uncheck-ac 2 --remove-ac 3 --ac "New"` |
+
+### Task Content
+
+| Action           | Command                                                  |
+|------------------|----------------------------------------------------------|
+| Add plan         | `backlog task edit 42 --plan "1. Step one\n2. Step two"` |
+| Add notes        | `backlog task edit 42 --notes "Implementation details"`  |
+| Add final summary | `backlog task edit 42 --final-summary "PR-style summary"` |
+| Append final summary | `backlog task edit 42 --append-final-summary "More details"` |
+| Clear final summary | `backlog task edit 42 --clear-final-summary` |
+| Add dependencies | `backlog task edit 42 --dep task-1 --dep task-2`         |
+| Add references   | `backlog task edit 42 --ref src/api.ts --ref https://github.com/issue/123` |
+| Add documentation | `backlog task edit 42 --doc https://design-docs.example.com --doc docs/spec.md` |
+
+### Multi‑line Input (Description/Plan/Notes/Final Summary)
+
+The CLI preserves input literally. Shells do not convert `\n` inside normal quotes. Use one of the following to insert real newlines:
+
+- Bash/Zsh (ANSI‑C quoting):
+  - Description: `backlog task edit 42 --desc $'Line1\nLine2\n\nFinal'`
+  - Plan: `backlog task edit 42 --plan $'1. A\n2. B'`
+  - Notes: `backlog task edit 42 --notes $'Done A\nDoing B'`
+  - Append notes: `backlog task edit 42 --append-notes $'Progress update line 1\nLine 2'`
+  - Final summary: `backlog task edit 42 --final-summary $'Shipped A\nAdded B'`
+  - Append final summary: `backlog task edit 42 --append-final-summary $'Added X\nAdded Y'`
+- POSIX portable (printf):
+  - `backlog task edit 42 --notes "$(printf 'Line1\nLine2')"`
+- PowerShell (backtick n):
+  - `backlog task edit 42 --notes "Line1`nLine2"`
+
+Do not expect `"...\n..."` to become a newline. That passes the literal backslash + n to the CLI by design.
+
+Descriptions support literal newlines; shell examples may show escaped `\\n`, but enter a single `\n` to create a newline.
+
+### Implementation Notes Formatting
+
+- Keep implementation notes concise and time-ordered; focus on progress, decisions, and blockers.
+- Use short paragraphs or bullet lists instead of a single long line.
+- Use Markdown bullets (`-` for unordered, `1.` for ordered) for readability.
+- When using CLI flags like `--append-notes`, remember to include explicit
+  newlines. Example:
+
+  ```bash
+  backlog task edit 42 --append-notes $'- Added new API endpoint\n- Updated tests\n- TODO: monitor staging deploy'
+  ```
+
+### Final Summary Formatting
+
+- Treat the Final Summary as a PR description: lead with the outcome, then add key changes and tests.
+- Keep it clean and structured so it can be pasted directly into GitHub.
+- Prefer short paragraphs or bullet lists and avoid raw progress logs.
+- Aim to cover: **what changed**, **why**, **user impact**, **tests run**, and **risks/follow‑ups** when relevant.
+- Avoid single‑line summaries unless the change is truly tiny.
+
+**Example (good, not rigid):**
+```
+Added Final Summary support across CLI/MCP/Web/TUI to separate PR summaries from progress notes.
+
+Changes:
+- Added `finalSummary` to task types and markdown section parsing/serialization (ordered after notes).
+- CLI/MCP/Web/TUI now render and edit Final Summary; plain output includes it.
+
+Tests:
+- bun test src/test/final-summary.test.ts
+- bun test src/test/cli-final-summary.test.ts
+```
+
+### Task Operations
+
+| Action             | Command                                      |
+|--------------------|----------------------------------------------|
+| View task          | `backlog task 42 --plain`                    |
+| List tasks         | `backlog task list --plain`                  |
+| Search tasks       | `backlog search "topic" --plain`              |
+| Search with filter | `backlog search "api" --status "To Do" --plain` |
+| Filter by status   | `backlog task list -s "In Progress" --plain` |
+| Filter by assignee | `backlog task list -a @sara --plain`         |
+| Archive task       | `backlog task archive 42`                    |
+| Demote to draft    | `backlog task demote 42`                     |
+
+---
+
+## Common Issues
+
+| Problem              | Solution                                                           |
+|----------------------|--------------------------------------------------------------------|
+| Task not found       | Check task ID with `backlog task list --plain`                     |
+| AC won't check       | Use correct index: `backlog task 42 --plain` to see AC numbers     |
+| Changes not saving   | Ensure you're using CLI, not editing files                         |
+| Metadata out of sync | Re-edit via CLI to fix: `backlog task edit 42 -s <current-status>` |
+
+---
+
+## Remember: The Golden Rule
+
+**🎯 If you want to change ANYTHING in a task, use the `backlog task edit` command.**
+**📖 Use CLI to read tasks, exceptionally READ task files directly, never WRITE to them.**
+
+Full help available: `backlog --help`
+
+<!-- BACKLOG.MD GUIDELINES END -->
