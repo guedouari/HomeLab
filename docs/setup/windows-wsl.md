@@ -1,74 +1,106 @@
-# Test Environment — Windows (WSL + Docker Engine)
+# Windows Deployment — WSL2 + Docker Engine
 
-Creates a disposable, isolated WSL distro for testing the HomeLab stack without touching your main system.
+> **Validated on:** Ubuntu 24.04 LTS inside WSL2, Docker Engine 29.4, Compose v5.1  
+> **Overview:** [Windows as a HomeLab Server](windows.md)
+
+Runs the HomeLab stack inside an Ubuntu 24.04 WSL2 distro on your Windows machine. Suitable for both permanent server deployments and disposable test environments. The optional "named distro" step in section 3 creates an isolated instance you can destroy and recreate cleanly — skip it for a permanent setup and run directly in your main Ubuntu distro.
 
 ---
 
 ## Prerequisites
 
-| Requirement | Version | Notes |
-|-------------|---------|-------|
-| Windows | 10 (22H2) or 11 | WSL 2 kernel required |
-| WSL 2 | Any | `wsl --install` to enable |
-| Disk space | ~4 GB free | For the WSL image |
+| Requirement | Notes |
+|-------------|-------|
+| Windows 10 (22H2) or 11 | WSL2 kernel included |
+| ~4 GB free disk | For the distro image |
 
 ---
 
-## 1. Enable WSL 2
+## 1. Enable WSL2
+
+Open **PowerShell as Administrator**:
 
 ```powershell
 wsl --install
 wsl --set-default-version 2
 ```
 
-Reboot if prompted.
+Reboot when prompted, then verify:
+
+```powershell
+wsl --version   # should show WSL version 2.x
+```
 
 ---
 
-## 2. Create an Isolated Test Distro
-
-Do **not** use your primary distro — create a named, disposable instance.
+## 2. Install Ubuntu 24.04
 
 ```powershell
-# Export an existing distro as the base
-wsl --export Ubuntu-24.04 C:\WSL\ubuntu-base.tar
-
-# Create a named isolated instance
-wsl --import homelab-test C:\WSL\homelab-test C:\WSL\ubuntu-base.tar --version 2
+wsl --install -d Ubuntu-24.04
 ```
 
-Destroy and recreate at any time:
+WSL will prompt you for a UNIX username and password on first launch. Set them and exit back to PowerShell.
+
+---
+
+## 3. Create a Named, Disposable Test Distro
+
+Working directly in Ubuntu-24.04 is fine for a quick test, but creating a separate named instance means you can destroy and recreate it cleanly without affecting your Ubuntu install.
+
+```powershell
+# Save Ubuntu-24.04 as a reusable base image (only needed once)
+New-Item -ItemType Directory -Force C:\WSL | Out-Null
+wsl --export Ubuntu-24.04 C:\WSL\ubuntu-24-base.tar
+
+# Create the isolated test instance
+wsl --import homelab-test C:\WSL\homelab-test C:\WSL\ubuntu-24-base.tar --version 2
+```
+
+To destroy and recreate:
 
 ```powershell
 wsl --unregister homelab-test
+wsl --import homelab-test C:\WSL\homelab-test C:\WSL\ubuntu-24-base.tar --version 2
 ```
 
 ---
 
-## 3. Enter the Distro
+## 4. Configure the Distro
+
+Enter the distro:
 
 ```powershell
 wsl -d homelab-test
 ```
 
-All steps below run **inside WSL**.
+All steps from here run **inside WSL**.
 
----
-
-## 4. Remove Windows PATH from WSL
-
-WSL appends your Windows `PATH` by default, causing Windows binaries (`node.exe`, `python.exe`) to shadow Linux ones.
+Create `/etc/wsl.conf` with three settings in one go:
 
 ```bash
 sudo tee /etc/wsl.conf > /dev/null <<'EOF'
+[boot]
+systemd=true
+
+[user]
+default=YOUR_USERNAME
+
 [interop]
 appendWindowsPath = false
 EOF
 ```
 
-Restart the distro to apply:
+Replace `YOUR_USERNAME` with the UNIX user you created in step 2.
+
+> **Why each setting:**
+> - `systemd=true` — required for `systemctl enable docker` (without this, Docker doesn't start on boot)
+> - `default=` — ensures you land as your user, not root, when entering the distro
+> - `appendWindowsPath = false` — prevents Windows binaries (`node.exe`, `python.exe`) shadowing Linux ones
+
+Restart the distro to apply all settings:
 
 ```powershell
+# Back in PowerShell
 wsl --terminate homelab-test
 wsl -d homelab-test
 ```
@@ -76,22 +108,26 @@ wsl -d homelab-test
 Verify:
 
 ```bash
-echo $PATH   # should contain only Linux paths (/usr/local/sbin, /usr/bin, etc.)
+# systemd is running
+systemctl is-system-running   # should print "running" or "degraded" (not "offline")
+
+# PATH contains only Linux paths
+echo $PATH    # /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ```
 
 ---
 
-## 5. Trust Corporate / Custom CA Certificates
+## 5. (Optional) Trust a Corporate CA Certificate
 
-Skip this if you are not behind a corporate HTTPS proxy or private registry.
+Skip this unless you are behind a corporate HTTPS proxy or private Docker registry.
 
 ```bash
-sudo cp /mnt/c/path/to/your-corp-ca.crt /usr/local/share/ca-certificates/
+sudo cp /mnt/c/path/to/corp-ca.crt /usr/local/share/ca-certificates/
 sudo apt-get install -y ca-certificates
 sudo update-ca-certificates
 ```
 
-Docker Engine reads the system CA bundle, so image pulls from private registries will also trust the certificate.
+Docker Engine reads the system CA bundle automatically.
 
 ---
 
@@ -100,36 +136,79 @@ Docker Engine reads the system CA bundle, so image pulls from private registries
 ```bash
 sudo apt-get update
 curl -fsSL https://get.docker.com | sh
+
+# Allow your user to run docker without sudo
 sudo usermod -aG docker $USER
-newgrp docker
-docker compose version
+
+# Apply group change without logging out
+exec su -l $USER
+
+# Verify
+docker compose version   # should print Compose version v2.x or later
+```
+
+> **Note:** `newgrp docker` works in some shells but can drop you into a subshell that loses your environment. `exec su -l $USER` is more reliable.
+
+---
+
+## 7. Clone the Repo (WSL-native path — required for I/O)
+
+The Windows drive mount (`/mnt/d/...`) causes I/O errors inside containers due to NTFS. Always clone into the WSL filesystem:
+
+```bash
+git clone https://github.com/guedouari/HomeLab.git ~/homelab
+cd ~/homelab
 ```
 
 ---
 
-## 7. Run the Stack
+## 8. Run the Stack
 
 ```bash
-cd /mnt/d/PROJECTS/GSA/HomeLab   # or clone into WSL-native path for better I/O
+cd ~/homelab/examples/lan
 
-# Layer 0 (LAN)
-cd examples/lan
-docker compose up -d
-docker compose ps
+# Copy the example env file
+cp .env.example .env
+# Edit SERVER_IP to your WSL2 IP:
+ip -4 addr show eth0 | grep inet   # note the IP, e.g. 172.28.5.42
+# Then edit .env: SERVER_IP=172.28.5.42
 
-# With WSL port overrides
+# Start with WSL overrides (remaps conflicting ports)
 docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
+
+# Check all three services are running
+docker compose -f docker-compose.yml -f docker-compose.wsl.yml ps
 ```
+
+Expected output — all three services `Up`:
+
+```
+NAME           IMAGE                          STATUS
+adguardhome    adguard/adguardhome:latest     Up
+gatus          twinproduction/gatus:latest    Up
+samba          dockurr/samba:latest           Up
+```
+
+Access points (replace IP with your WSL2 eth0 address):
+
+| Service | URL | Default credentials |
+|---------|-----|---------------------|
+| AdGuard Home | `http://<WSL-IP>:3000` | admin / homelab |
+| Gatus dashboard | `http://<WSL-IP>:8081` | — |
+| Samba share | `\\<WSL-IP>\data` | guest (no password) |
+
+> **Port 8081 for Gatus:** the WSL override remaps Gatus from 8080 (used by `wslrelay.exe`) to 8081.
+> **Port 445 for Samba:** Windows `LanmanServer` owns port 445; Samba binds inside the container but Windows blocks inbound connections. Test Samba from another device on the LAN, or from inside WSL with `smbclient -L //127.0.0.1 -N`.
 
 ---
 
-## 8. Teardown
+## 9. Teardown
 
 ```bash
-docker compose down -v
+docker compose -f docker-compose.yml -f docker-compose.wsl.yml down -v
 ```
 
-Remove the distro entirely:
+Remove the distro entirely when done:
 
 ```powershell
 wsl --unregister homelab-test
@@ -140,10 +219,15 @@ Remove-Item -Recurse C:\WSL\homelab-test
 
 ## Troubleshooting
 
-**`docker: command not found` after install** — restart the shell: `exec bash`
+**`docker: command not found` after install** — run `exec su -l $USER` to reload group membership.
 
-**`wmdocker` suggested by apt** — ignore it, that is an unrelated Window Manager dock app.
+**`apt` suggests `wmdocker`** — ignore it. That is an unrelated Window Manager dock applet, not Docker Engine.
 
-**WSL 2 kernel not found** — run `wsl --update` as Administrator.
+**`systemctl` not found / "System has not been booted with systemd"** — `systemd=true` is missing from `/etc/wsl.conf`, or the distro wasn't restarted after adding it. Run `wsl --terminate homelab-test` from PowerShell, then re-enter.
 
-**Port conflicts with Docker Desktop** — stop Docker Desktop before starting Docker Engine inside WSL.
+**WSL2 kernel not found** — run `wsl --update` in PowerShell as Administrator.
+
+**I/O errors from containers** — you are running from `/mnt/d/...`. Clone the repo into `~/homelab` instead (WSL-native ext4 path).
+
+**Port conflicts** — always use the `-f docker-compose.wsl.yml` override. It handles the known port conflicts (Gatus→8081, AdGuard→3000).
+

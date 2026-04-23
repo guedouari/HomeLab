@@ -49,7 +49,7 @@ No layer is started until the previous is tested and stable.
 |-------|------|-------|
 | **0** | LAN | Isolated local network baseline — file sharing, DNS filtering, lightweight monitoring. No internet exposure. Lighter security. |
 | **1** | WAN | VPN access to the LAN from outside. Hardened security. Services reachable by domain name via VPN/LAN split-horizon DNS. |
-| **2** | Domain | Public domain name — dynDNS, reverse proxy, Sablier (on-demand containers). No direct IP access; everything routes through the proxy. Hardened security, no LAN leakage. |
+| **2** | Domain | Public domain name — dynDNS, reverse proxy, on-demand container startup. No direct IP access; everything routes through the proxy. Hardened security, no LAN leakage. |
 | **3** | Services | User-chosen services — case studies for replacing cloud/platform dependency (e.g., Nextcloud + modules to replace Google/Apple). Each service is evaluated and added independently. |
 
 Each layer is a **strict superset** of the previous. A Layer 2 deployment includes all of Layers 0, 1, and 2.
@@ -60,15 +60,15 @@ Isolated, local network only. Services are accessed by IP or local DNS name. Sec
 Core services: DNS filtering, file sharing, lightweight monitoring.
 
 ### Layer 1 — WAN (VPN)
-WireGuard VPN gives trusted devices access to the home LAN from outside. Security is hardened at this layer — the VPN endpoint is the only thing exposed to the internet. Services remain accessible by domain name via split-horizon DNS (local AdGuard Home resolves domain → internal IP for LAN/VPN clients).
+A VPN gives trusted devices access to the home LAN from outside. Security is hardened at this layer — the VPN endpoint is the only thing exposed to the internet. Services remain accessible by domain name via split-horizon DNS (local DNS resolver resolves domain → internal IP for LAN/VPN clients).
 
 ### Layer 2 — Domain
-A public domain name makes services reachable from the internet without a VPN. A reverse proxy (Caddy or Traefik) handles TLS termination and routing. Sablier enables on-demand container startup to preserve resources (critical for Steam Machine targets). Direct IP:port access to services is locked — everything routes through the proxy. No LAN leakage.
+A public domain name makes services reachable from the internet without a VPN. A reverse proxy handles TLS termination and routing. An on-demand startup tool enables container startup on request to preserve resources (critical for Steam Machine targets). Direct IP:port access to services is locked — everything routes through the proxy. No LAN leakage.
 
 ### Layer 3 — Services
 User-chosen self-hosted services. Each is evaluated independently: is it worth running? Does it genuinely replace a cloud dependency? Does it work across all target devices? A service is not added until those questions are answered.
 
-The default case study: replacing Google/Apple dependency with Nextcloud + modules (contacts, calendar, files, photos).
+The primary case study: replacing cloud dependency (e.g. contacts, calendar, file sync, photos) with self-hosted equivalents.
 
 ---
 
@@ -85,11 +85,11 @@ Speculative additions (e.g., "we might want this later") are captured in `horizo
 
 ## 6. Database: Introduce When Needed
 
-A shared PostgreSQL instance is the preferred database backend when multiple services need a relational database. However:
+A shared relational database instance is preferred when multiple services need one. However:
 
-- **Do not add PostgreSQL until a service that needs it is actually being deployed**
+- **Do not add a database until a service that needs it is actually being deployed**
 - When it is added, use a single shared instance (one database + user per service) to simplify backups and operations
-- pgvector or other extensions are added only when a specific service requires them — not preemptively
+- Extensions are added only when a specific service requires them — not preemptively
 
 SQLite is acceptable for services that only support SQLite. The goal is operational simplicity, not uniformity for its own sake.
 
@@ -97,16 +97,23 @@ SQLite is acceptable for services that only support SQLite. The goal is operatio
 
 ## 7. Hardware Compatibility
 
-HomeLab targets **three home server archetypes**. Any machine that fits within one of these archetypes is supported.
+HomeLab targets **four home server archetypes**. Any machine that fits within one of these archetypes is supported.
 
-### Steam Machine *(and any x86_64 general-purpose PC)*
+### Steam Machine *(and any x86_64 general-purpose Linux PC)*
 - Full feature set available
-- On-demand container startup (Sablier, Layer 2) is critical to preserve gaming performance
+- On-demand container startup (Layer 2) is critical to preserve gaming performance
 - Steam / gaming workloads take priority over background services
+
+### Windows Machine *(WSL2 + Docker Engine or Podman Desktop)*
+- Runs the full stack inside WSL2 (Ubuntu 24.04 or Podman Fedora VM) without wiping Windows
+- Two validated paths: WSL2 + Docker Engine (simpler) and Podman Desktop (rootless, daemon-free)
+- Known constraints: port 445 blocked externally, DNS filter must bind to VM eth0 IP, NTFS mounts must be avoided
+- Suitable for gaming PCs doing double duty or spare Windows machines
+- See `docs/setup/windows.md` for the deployment overview
 
 ### NAS (Synology, TrueNAS, or generic)
 - Docker-compatible NAS devices run the full stack
-- Native NAS file-sharing (SMB/NFS) may replace or supplement the Samba container
+- Native NAS file-sharing (SMB/NFS) may replace or supplement containerised file-sharing
 - Storage-heavy services are natural fits on this platform
 
 ### Raspberry Pi *(and ARM64 SBCs)*
@@ -136,7 +143,7 @@ Multi-node and VPS support are a far-future horizon — well beyond the dynamic 
 
 The nominal topology, when eventually explored:
 - **1 home server** running the full local stack
-- **1 VPS** as a public-facing relay / reverse proxy (WireGuard exit node)
+- **1 VPS** as a public-facing relay / reverse proxy (VPN exit node)
 - Optionally: multiple home servers or additional VPS nodes
 
 ---

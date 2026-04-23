@@ -14,17 +14,12 @@ export const GeneratorInput = z.object({
   timezone: z.string().min(1),
   /** Public domain name — required for layer >= 2 */
   domain: z.string().optional(),
-  /** Cloudflare API token for DNS-01 ACME — required for layer >= 2 */
-  cloudflareToken: z.string().optional(),
+  /** DNS provider API token for DNS-01 ACME challenge — required for layer >= 2 */
+  dnsApiToken: z.string().optional(),
   /** ACME email for TLS certificate registration — required for layer >= 2 */
   acmeEmail: z.string().email().optional(),
-  /** WireGuard VPN subnet (e.g. "10.8.0.0/24") — required for layer >= 1 */
+  /** VPN subnet CIDR (e.g. "10.8.0.0/24") — required for layer >= 1 */
   vpnSubnet: z.string().optional(),
-  /** Nextcloud admin credentials — required for layer 3 */
-  nextcloudAdminUser: z.string().optional(),
-  nextcloudAdminPassword: z.string().optional(),
-  /** PostgreSQL superuser password — required for layer 3 */
-  postgresPassword: z.string().optional(),
 }).superRefine((data, ctx) => {
   const layer = parseInt(data.layer);
 
@@ -34,17 +29,11 @@ export const GeneratorInput = z.object({
   if (layer >= 2 && !data.domain) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "domain is required for Layer 2+", path: ["domain"] });
   }
-  if (layer >= 2 && !data.cloudflareToken) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "cloudflareToken is required for Layer 2+", path: ["cloudflareToken"] });
+  if (layer >= 2 && !data.dnsApiToken) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "dnsApiToken is required for Layer 2+", path: ["dnsApiToken"] });
   }
   if (layer >= 2 && !data.acmeEmail) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "acmeEmail is required for Layer 2+", path: ["acmeEmail"] });
-  }
-  if (layer >= 3 && !data.nextcloudAdminUser) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "nextcloudAdminUser is required for Layer 3", path: ["nextcloudAdminUser"] });
-  }
-  if (layer >= 3 && !data.postgresPassword) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "postgresPassword is required for Layer 3", path: ["postgresPassword"] });
   }
 });
 

@@ -6,12 +6,12 @@ Not scanned by Backlog.md. These are for contributors setting up and working on 
 
 How to run the HomeLab stack locally for testing:
 
-| Guide | Platform |
-|-------|----------|
-| [setup/windows-wsl.md](setup/windows-wsl.md) | Windows — WSL2 + Docker Engine |
-| [setup/windows-podman.md](setup/windows-podman.md) | Windows — Podman Desktop |
-| [setup/archlinux-steamos.md](setup/archlinux-steamos.md) | Arch Linux / SteamOS (Steam Deck) |
-| [setup/ubuntu.md](setup/ubuntu.md) | Ubuntu — bare install / VM / VPS |
+| Guide | Platform | Status |
+|-------|----------|--------|
+| [setup/windows-wsl.md](setup/windows-wsl.md) | Windows — WSL2 + Docker Engine | ✅ Validated |
+| [setup/windows-podman.md](setup/windows-podman.md) | Windows — Podman Desktop | ⚠️ Reference (not yet tested) |
+| [setup/archlinux-steamos.md](setup/archlinux-steamos.md) | Arch Linux / SteamOS (Steam Deck) | ⚠️ Reference (not yet tested) |
+| [setup/ubuntu.md](setup/ubuntu.md) | Ubuntu — bare install / VM / VPS | ⚠️ Reference (not yet tested) |
 
 ## Generator Development
 

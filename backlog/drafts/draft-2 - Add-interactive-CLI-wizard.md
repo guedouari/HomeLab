@@ -1,11 +1,12 @@
 ---
-id: BACK-5
+id: DRAFT-2
 title: Add interactive CLI wizard
 status: To Do
 assignee: []
 created_date: '2026-04-20 13:52'
 labels:
   - generator
+milestone: m-11
 dependencies: []
 priority: low
 ---
