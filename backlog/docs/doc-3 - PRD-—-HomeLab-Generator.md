@@ -1,3 +1,9 @@
+---
+id: doc-3
+title: PRD — HomeLab Generator
+type: prd
+created_date: '2026-04-23 22:19'
+---
 # Product Requirements Document — HomeLab Config Generator
 
 **Status:** Draft  
