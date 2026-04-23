@@ -9,6 +9,7 @@ labels:
   - epic-wizard
   - sprint-1
 dependencies: []
+milestone: m-sprint-1
 references:
   - src/schema.ts
 documentation:

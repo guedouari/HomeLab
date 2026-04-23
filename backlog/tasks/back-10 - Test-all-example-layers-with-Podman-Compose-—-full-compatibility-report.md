@@ -10,7 +10,7 @@ labels:
   - podman
   - testing
   - compatibility
-milestone: m-2
+milestone: m-sprint-0
 dependencies: []
 references:
   - backlog/decisions/decision-1 - Container platform — Docker + Compose.md

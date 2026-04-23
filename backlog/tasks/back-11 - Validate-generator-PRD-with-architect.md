@@ -10,6 +10,7 @@ dependencies: []
 documentation:
   - backlog/drafts/prd-homelab-generator.md
 priority: high
+milestone: m-sprint-0
 ---
 
 ## Description

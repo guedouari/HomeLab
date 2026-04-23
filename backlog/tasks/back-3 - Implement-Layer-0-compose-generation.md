@@ -7,7 +7,7 @@ created_date: '2026-04-20 13:52'
 updated_date: '2026-04-23 10:28'
 labels:
   - generator
-milestone: m-7
+milestone: m-sprint-1
 dependencies: []
 references:
   - backlog/decisions/decision-1 - Container platform — Docker + Compose.md

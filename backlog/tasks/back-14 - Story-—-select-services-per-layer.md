@@ -12,6 +12,7 @@ dependencies:
   - BACK-13
 references:
   - src/schema.ts
+milestone: m-sprint-1
 documentation:
   - backlog/docs/doc-4 - Architecture-—-HomeLab-Generator.md
 ---

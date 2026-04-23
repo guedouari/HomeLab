@@ -8,7 +8,7 @@ labels:
   - generator
 dependencies: []
 priority: high
-milestone: m-6
+milestone: m-sprint-0
 ---
 
 ## Description
