@@ -154,16 +154,19 @@ Each `examples/` folder is a self-contained, runnable stack:
 
 ---
 
-## WSL2 Development Notes
+## WSL2 / Windows Deployment Notes
 
-See `docs/dev-setup-windows.md` for the full guide. Key constraints:
+Windows machines (WSL2 + Docker Engine or Podman Desktop) are **first-class deployment targets**. See `docs/setup/windows.md` for the overview and `docs/setup/windows-wsl.md` / `docs/setup/windows-podman.md` for the specific guides.
+
+Key constraints that apply to all Windows deployments:
 - Port 445 owned by Windows `LanmanServer` — SMB file-sharing containers cannot bind externally in WSL
-- Port 53 owned by Windows DNS stub — DNS filtering containers must bind to a specific interface (eth0 IP)
-- Port 8080 owned by `wslrelay.exe` — cannot be killed; monitoring services should use an alternate port (e.g. 8082)
+- Port 53 conflict — DNS filtering containers must bind to the VM's specific eth0 IP, not `0.0.0.0`
+- Port 8080 owned by `wslrelay.exe` — monitoring services should use an alternate port (e.g. 8082)
 - NTFS bind mounts (`/mnt/d/...`) cause I/O errors inside containers — use WSL-native ext4 paths
 - Avahi/wsdd2 multicast doesn't propagate through WSL2 NAT — discovery only works on real hardware
+- DNS overrides inside the VM (`/etc/resolv.conf`) don't persist across VM restarts
 
-Use `docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d` for WSL2 testing.
+Use `docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d` (or `podman-compose` equivalent) for all Windows deployments.
 
 ---
 
@@ -171,7 +174,9 @@ Use `docker-compose -f docker-compose.yml -f docker-compose.wsl.yml up -d` for W
 
 | Target | Notes |
 |--------|-------|
-| Steam Machine / x86_64 PC | Full feature set; on-demand container startup (Layer 2) is critical for gaming performance |
+| Steam Machine / x86_64 PC (Linux) | Full feature set; on-demand container startup (Layer 2) is critical for gaming performance |
+| Windows PC (WSL2 + Docker Engine) | Validated deployment path — Ubuntu 24.04 WSL2 + Docker Engine; see `docs/setup/windows-wsl.md` |
+| Windows PC (Podman Desktop) | Validated deployment path — Podman Fedora VM; rootless alternative; see `docs/setup/windows-podman.md` |
 | Raspberry Pi 4/5 (ARM64) | ARM64 image required for every service |
 | NAS (Synology / TrueNAS) | Docker-compatible; native NAS shares may coexist with containerised services |
 

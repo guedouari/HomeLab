@@ -97,12 +97,19 @@ SQLite is acceptable for services that only support SQLite. The goal is operatio
 
 ## 7. Hardware Compatibility
 
-HomeLab targets **three home server archetypes**. Any machine that fits within one of these archetypes is supported.
+HomeLab targets **four home server archetypes**. Any machine that fits within one of these archetypes is supported.
 
-### Steam Machine *(and any x86_64 general-purpose PC)*
+### Steam Machine *(and any x86_64 general-purpose Linux PC)*
 - Full feature set available
 - On-demand container startup (Layer 2) is critical to preserve gaming performance
 - Steam / gaming workloads take priority over background services
+
+### Windows Machine *(WSL2 + Docker Engine or Podman Desktop)*
+- Runs the full stack inside WSL2 (Ubuntu 24.04 or Podman Fedora VM) without wiping Windows
+- Two validated paths: WSL2 + Docker Engine (simpler) and Podman Desktop (rootless, daemon-free)
+- Known constraints: port 445 blocked externally, DNS filter must bind to VM eth0 IP, NTFS mounts must be avoided
+- Suitable for gaming PCs doing double duty or spare Windows machines
+- See `docs/setup/windows.md` for the deployment overview
 
 ### NAS (Synology, TrueNAS, or generic)
 - Docker-compatible NAS devices run the full stack

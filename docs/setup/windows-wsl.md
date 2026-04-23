@@ -1,8 +1,9 @@
-# Test Environment — Windows (WSL2 + Docker Engine)
+# Windows Deployment — WSL2 + Docker Engine
 
-> **Validated on:** Ubuntu 24.04 LTS inside WSL2, Docker Engine 29.4, Compose v5.1
+> **Validated on:** Ubuntu 24.04 LTS inside WSL2, Docker Engine 29.4, Compose v5.1  
+> **Overview:** [Windows as a HomeLab Server](windows.md)
 
-Creates a disposable, isolated WSL2 distro for testing the HomeLab stack without touching your main system. All four example layers can be fully tested from here.
+Runs the HomeLab stack inside an Ubuntu 24.04 WSL2 distro on your Windows machine. Suitable for both permanent server deployments and disposable test environments. The optional "named distro" step in section 3 creates an isolated instance you can destroy and recreate cleanly — skip it for a permanent setup and run directly in your main Ubuntu distro.
 
 ---
 

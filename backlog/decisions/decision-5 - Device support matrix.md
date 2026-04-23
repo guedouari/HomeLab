@@ -21,7 +21,9 @@ These are the machines that run Docker + the homelab stack. All images must supp
 
 | Server | Architecture | Notes |
 |--------|-------------|-------|
-| Steam Machine / x86_64 PC | x86_64 | Primary development and gaming target; Sablier at Layer 2 is critical — gaming must not be impacted by container overhead |
+| Steam Machine / x86_64 PC | x86_64 | Primary development and gaming target; on-demand container startup (Layer 2) is critical — gaming must not be impacted by container overhead |
+| Windows PC (WSL2 + Docker Engine) | x86_64 | Windows machine running the stack inside Ubuntu 24.04 WSL2; validated path — see `docs/setup/windows-wsl.md` |
+| Windows PC (Podman Desktop) | x86_64 | Windows machine running the stack inside Podman VM; rootless alternative — see `docs/setup/windows-podman.md` |
 | Raspberry Pi 4 / 5 | ARM64 | Low-power always-on target; ARM64 image support is mandatory for every service |
 | NAS (Synology / TrueNAS) | x86_64 or ARM64 | Docker-compatible; may coexist with native NAS shares |
 
@@ -45,9 +47,9 @@ These are the client devices that access services running on the server. They dr
 
 | Layer | Access model | DNS behaviour |
 |-------|-------------|---------------|
-| **0 — LAN** | Internal IP or local DNS name (e.g. `homelab.lan`) | AdGuard Home resolves to server LAN IP |
-| **1 — WAN** | WireGuard VPN; peers join the LAN and behave identically to Layer 0 | AdGuard Home serves VPN peers via `PEERDNS` — split-horizon applies |
-| **2 — Domain** | Public domain name via Caddy reverse proxy + TLS | Split-horizon: internal IP on LAN/VPN, public IP on WAN — same hostname everywhere |
+| **0 — LAN** | Internal IP or local DNS name (e.g. `homelab.lan`) | DNS filter resolves to server LAN IP |
+| **1 — WAN** | VPN; peers join the LAN and behave identically to Layer 0 | DNS filter serves VPN peers via split-horizon |
+| **2 — Domain** | Public domain name via reverse proxy + TLS | Split-horizon: internal IP on LAN/VPN, public IP on WAN — same hostname everywhere |
 | **3 — Services** | Per-service; re-evaluated against this matrix per service | Inherits Layer 2 DNS |
 
 ### LAN-only connected devices
@@ -66,9 +68,10 @@ Desktop PC and Smart TV are LAN-only by design. Remote access for these is not a
 
 - Each service decision references this matrix and states which connected devices it supports and under what conditions
 - Server-side image selection is constrained by the server target architectures (ARM64 mandatory)
-- Services that are LAN-only by design (Samba, AdGuard admin UI) document that as an intentional scope boundary, not a limitation
+- Services that are LAN-only by design (file sharing admin, DNS filter admin UI) document that as an intentional scope boundary, not a limitation
 - Deployment guides set expectations per device type based on this matrix
 - Network configuration (DNS, firewall, reverse proxy) is validated against the connected device set
+- Windows server targets introduce known port constraints (445, 53, 8080) and require the WSL override file (`docker-compose.wsl.yml`); deployment guides document per-path workarounds
 
 ## Alternatives
 

@@ -1,8 +1,9 @@
-# Test Environment — Windows (Podman Desktop)
+# Windows Deployment — Podman Desktop
 
-> **Validated on:** Podman Desktop 1.x, Podman 5.8.2, Fedora 43 WSL2 VM, Windows 11
->
-> **Note:** The WSL2 + Docker Engine guide (`windows-wsl.md`) is the simpler path. Use this guide if you prefer a rootless, daemon-free setup or already have Podman Desktop installed.
+> **Validated on:** Podman Desktop 1.x, Podman 5.8.2, Fedora 43 WSL2 VM, Windows 11  
+> **Overview:** [Windows as a HomeLab Server](windows.md)
+
+Runs the HomeLab stack inside Podman Desktop's WSL2-backed Fedora VM. Rootless, daemon-free alternative to the Docker Engine path. See the [overview guide](windows.md) if you're deciding between the two.
 
 Podman Desktop runs a WSL2-backed Fedora VM (`podman-machine-default`). All container operations happen inside that VM. `network_mode: host` works correctly inside the VM, which means the WSL override file (`docker-compose.wsl.yml`) is required — the same as the Docker Engine + WSL2 path.
 
