@@ -245,7 +245,7 @@ Each layer is a **milestone**. Complete Layer N generator before Layer N+1.
 
 ## Horizon *(visibility only — nothing here is planned for the current cycle)*
 
-- **Multi-node / VPS** — home server + public relay node; WireGuard mesh; per-node config generation
+- **Multi-node / VPS** — home server + public relay node; VPN mesh; per-node config generation
 - **Additional Layer 3 services** — each evaluated independently per the project principles; no list maintained here to avoid premature commitment
 - **Mobile companion** — same generator library in a mobile shell
 - **Alternative Git provider adapters** — trivial once the interface is defined

@@ -18,12 +18,9 @@ program
   .requiredOption("--server-ip <ip>", "Server LAN IP address")
   .requiredOption("--timezone <tz>", "IANA timezone (e.g. Europe/Paris)")
   .option("--domain <domain>", "Public domain name (required for layer 2+)")
-  .option("--cloudflare-token <token>", "Cloudflare API token (required for layer 2+)")
+  .option("--dns-api-token <token>", "DNS provider API token for DNS-01 ACME (required for layer 2+)")
   .option("--acme-email <email>", "ACME email for TLS certs (required for layer 2+)")
-  .option("--vpn-subnet <cidr>", "WireGuard VPN subnet (required for layer 1+)", "10.8.0.0/24")
-  .option("--nextcloud-admin-user <user>", "Nextcloud admin username (required for layer 3)")
-  .option("--nextcloud-admin-password <pass>", "Nextcloud admin password (required for layer 3)")
-  .option("--postgres-password <pass>", "PostgreSQL superuser password (required for layer 3)")
+  .option("--vpn-subnet <cidr>", "VPN subnet CIDR (required for layer 1+)", "10.8.0.0/24")
   .option("--out <dir>", "Output directory", "./output")
   .action(async (opts) => {
     const parsed = GeneratorInput.safeParse({
@@ -32,12 +29,9 @@ program
       serverIp: opts.serverIp,
       timezone: opts.timezone,
       domain: opts.domain,
-      cloudflareToken: opts.cloudflareToken,
+      dnsApiToken: opts.dnsApiToken,
       acmeEmail: opts.acmeEmail,
       vpnSubnet: opts.vpnSubnet,
-      nextcloudAdminUser: opts.nextcloudAdminUser,
-      nextcloudAdminPassword: opts.nextcloudAdminPassword,
-      postgresPassword: opts.postgresPassword,
     });
 
     if (!parsed.success) {
