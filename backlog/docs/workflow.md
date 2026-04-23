@@ -33,21 +33,92 @@ board shows.
 | Epic | Parent task (`--no-dod-defaults`) | `backlog task create "Epic — X" --no-dod-defaults` |
 | Story candidate | Draft | `backlog draft create "Story — Y" -l "epic-X"` |
 | Story (committed to sprint) | Task (promoted from draft) | `backlog draft promote DRAFT-N` |
-| Sprint assignment | Label `l:sprint-N` | `backlog task edit N -l "epic-X,sprint-1"` |
-| Release gate | Milestone | `backlog milestone list --plain` |
+| **Sprint** | **Milestone** (`m-sprint-N`) | `backlog task edit N -m m-sprint-N` |
+| Release | Epic done % | All epic subtasks Done → feature shipped |
 | Project context | `_bmad-output/project-context.md` | BMAD-internal only |
 
 ---
 
-## Three Axes on Every Task
+## Milestone Strategy — Sprint as Milestone (Direction A)
 
-Tasks carry three independent labels — never conflate them:
+**Milestones are sprint containers, not release gates.**
+
+`backlog task list -m m-sprint-1 --plain` is the only label-style filter that
+works on `task list` from the CLI — so milestones do the job sprints need.
+Release tracking falls to epic parent task completion (all subtasks Done).
 
 ```
-Parent task  →  epic    (what group: BACK-N as --parent)
-Label        →  sprint  (when: l:sprint-N)
-Milestone    →  release (ships when: milestone assignment)
+Sprint milestone    m-sprint-N     rotating, archived on sprint close
+Epic parent task    BACK-N         permanent, closes when all stories Done
+Release             (no primitive) emerges when all epics for a phase close
 ```
+
+### Sprint lifecycle
+
+```
+1. Planning
+   backlog milestone create m-sprint-1 "Sprint 1 — <goal>"
+   backlog draft list --plain                 review candidates
+   backlog draft promote DRAFT-N              commit story to sprint
+   backlog task edit BACK-N -m m-sprint-1    assign to sprint milestone
+   backlog doc create --type sprint-goal "Sprint 1 — <goal>"
+
+2. Execution
+   backlog task list -m m-sprint-1 --plain   sprint board
+   backlog sequence list --plain              what's unblocked
+   backlog task list -m m-sprint-1 -s "In Progress" --plain
+
+3. Close
+   backlog task list -m m-sprint-1 --plain   verify all Done
+   backlog milestone archive m-sprint-1
+   backlog doc create --type retrospective "Sprint 1 Retro"
+   # incomplete tasks: reassign to m-sprint-2 or demote back to draft
+```
+
+### Release tracking (replaces milestone %)
+
+```
+backlog task list -p BACK-12 --plain   all stories in epic, with status
+backlog overview                       aggregate: completion %, blocked, stale
+```
+
+When all stories under an epic parent are Done → that feature is shipped.
+No formal release milestone needed unless you need audit trail (see Direction C).
+
+### Alternative: Direction C (more control)
+
+Keep both release milestones AND sprint milestones if you need formal release
+tracking from CLI:
+
+```
+m-layer-0, m-generator  →  permanent release gates (never archive)
+m-sprint-N              →  rotating sprint containers (archive on close)
+
+Sprint planning: assign to m-sprint-N
+Sprint close:   reassign incomplete tasks to m-sprint-N+1 or release milestone
+Release view:   backlog task list -m m-layer-0 --plain
+```
+
+More ceremony (two milestone assignments per task) — use when release reporting
+matters more than simplicity.
+
+### Legacy milestones (m-1 through m-14)
+
+The existing 14 milestones are **phasing out** — they represent an earlier
+release-gate model. Do not assign new tasks to them. Archive each one as its
+tasks naturally migrate to sprint milestones during normal sprint planning.
+
+---
+
+## Two Axes on Every Task
+
+```
+Parent task  →  epic     (what group: BACK-N as --parent)
+Milestone    →  sprint   (when: m-sprint-N, the CLI-filterable execution window)
+```
+
+Label `l:sprint-N` is kept on tasks as metadata for the browser UI but is not
+the primary sprint filter — milestone is.
 
 A story belongs to epic "Generator Wizard" AND sprint-1 AND milestone m-6
 simultaneously. Each axis answers a different question.
@@ -126,9 +197,9 @@ backlog draft list --plain
 # Check execution order constraints
 backlog sequence list --plain
 
-# Promote selected stories to tasks + assign to sprint
+# Promote selected stories to tasks + assign to sprint milestone
 backlog draft promote DRAFT-N
-backlog task edit BACK-N -l "epic-<slug>,sprint-1" \
+backlog task edit BACK-N -m m-sprint-1 \
   --plan "<technical approach from Winston>" \
   --doc backlog/docs/<arch-doc>.md \
   --ref src/<relevant-file>.ts \
